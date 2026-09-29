@@ -95,6 +95,19 @@ def run(main: str, hyb: str) -> int:
     check("치고 빠지기 중 D* 3–9 개수", ((hit.d_star >= 3) & (hit.d_star <= 9)).sum(), 15, 0, "4.5")
     check("추격 격추 정책 격추 종료 비율 최소", kill[chase].min(), .26, .006, "4.5"); check("추격 격추 정책 격추 종료 비율 최대", kill[chase].max(), .35, .006, "4.5")
 
+    # 안전규칙: "보장"이 아니라 관측 빈도 (표 10, 5.3)
+    def eps(pat, col):
+        x = ep[ep.cond.str.contains(pat, regex=True)]
+        return int((x[col] > 0).sum()), len(x)
+    check("BT-v3 하드덱 위반 교전 수", eps(r"^BT-v3$", "viol_deck")[0], 0, 0, "4.6.1·5.3")
+    check("BT-v3 과G 위반 교전 수", eps(r"^BT-v3$", "viol_over_g")[0], 0, 0, "4.6.1·5.3")
+    check("BT-v3 최소 이격 위반 교전 수(400 중)", eps(r"^BT-v3$", "viol_sep")[0], 180, 0, "4.6.1")
+    check("Shield 하드덱 위반 교전 수(8,000 중)", eps(r"^SHD-", "viol_deck")[0], 30, 0, "4.6.1·5.3 (정오표)")
+    check("Shield 과G 위반 교전 수(8,000 중)", eps(r"^SHD-", "viol_over_g")[0], 3, 0, "4.6.1·5.3 (정오표)")
+    shd = ep[ep.cond.str.startswith("SHD-")]
+    check("Shield 평균 하드덱 위반율", shd.viol_deck.mean(), .0005, .00005, "표 10")
+    check("Shield 위반 교전이 나온 시드 수(하드덱)", shd[shd.viol_deck > 0].cond.nunique(), 4, 0, "4.6.1")
+
     # 확장 하이브리드 (표 9b)
     for pat, sc, sd in [(r"RES-s\d-b200", .628, .024), (r"GATE-s\d-b200", .722, .047)]:
         g = mh[mh.cond.str.match(pat)]
