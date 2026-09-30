@@ -235,6 +235,32 @@ def run_error_share(outdir: str, main_dir: str, hyb_dir: str, workers: int, cond
         res = [_error_job(j) for j in jobs]
     pd.DataFrame([r for x in res for r in x]).to_csv(os.path.join(outdir, "error_share.csv"), index=False)
 
+def selftest() -> None:
+    """실제 기하 계산(geometry.build_obs)으로 만든 표준 장면 6개가 기대한 영역으로 분류되는지 확인한다.
+    기체 A(자기)는 원점에서 북쪽(psi=0)으로 난다. 상대 B 를 놓는 위치와 방향으로 영역을 만든다."""
+    import math
+    from ..dynamics import AircraftState
+    from ..geometry import build_obs
+
+    def code(bx, by, b_psi, a_psi=0.0):
+        a = AircraftState(0, 0, 5000, 200, a_psi)
+        b = AircraftState(bx, by, 5000, 200, b_psi)
+        return int(region_codes(build_obs(a, b, 0.0, 1.0)[None, :])[0])
+
+    pi = math.pi
+    cases = [
+        ("정면 조우: B 가 정북 3km 앞에서 남향(A 를 향해)", code(3000, 0, pi), 0),
+        ("공격 6시: B 가 정북 1km 앞에서 북향(A 앞에서 도망)", code(1000, 0, 0.0), 1),
+        ("공격 측면: B 가 A 기수 60° 방향, 북동향", code(1500, 2598, pi / 2), 1),
+        ("방어: B 가 A 정남(뒤) 1km, 북향(A 를 향해 추격)", code(-1000, 0, 0.0), 2),
+        ("중립: B 가 A 정남 1km, 남향(서로 멀어짐)", code(-1000, 0, pi), 3),
+        ("경계: ATA=0, AA=180 인 정면(같은 고도) 은 정면 조우", code(500, 0, pi), 0),
+    ]
+    for name, got, want in cases:
+        assert got == want, f"{name}: 기대 {REGIONS[want]}, 실제 {REGIONS[got]}"
+    print(f"selftest 통과: 장면 {len(cases)}개")
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="전술 영역별 설명 비용")
     ap.add_argument("--outdir", default="results/tactical")
@@ -243,9 +269,14 @@ if __name__ == "__main__":
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--conds", nargs="*", default=None)
     ap.add_argument("--report-only", action="store_true")
+    ap.add_argument("--selftest", action="store_true", help="영역 분류 자체 점검만 하고 끝낸다")
     a = ap.parse_args()
+    selftest()
+    if a.selftest:
+        raise SystemExit(0)
     if not a.report_only:
         run(a.outdir, a.main_dir, a.hyb_dir, a.workers, a.conds)
         run_error_share(a.outdir, a.main_dir, a.hyb_dir, a.workers, a.conds)
-    from .tactical_report import build
+    from .tactical_report import build, plot_error_share
     print(build(a.outdir))
+    print(plot_error_share(a.outdir, os.path.join(a.outdir, "fig_error_share.png")))

@@ -114,6 +114,9 @@ def run(main: str, hyb: str) -> int:
         check(f"{pat} 점수", g.score.mean(), sc, .0006, "표 9b"); check(f"{pat} sd", g.score.std(), sd, .0006, "표 9b")
     check("게이팅형 200세대 D* 모두 17", (mh[mh.cond.str.match(r"GATE-s\d-b200")].d_star == 17).sum(), 3, 0, "표 9b")
 
+    _check_tactical(os.path.join("results", "tactical"))
+    _check_distill(os.path.join("results", "distill"))
+
     bad = 0
     print(f"{'항목':40s} {'계산값':>9s} {'문서값':>9s}  판정  위치")
     for name, got, want, tol, where in ROWS:
@@ -122,6 +125,106 @@ def run(main: str, hyb: str) -> int:
         print(f"{name:40s} {got:9.4f} {want:9.4f}  {'OK  ' if ok else 'FAIL'}  {where}")
     print(f"\n{len(ROWS) - bad}/{len(ROWS)} 일치" + ("" if not bad else f", {bad}개 어긋남"))
     return 1 if bad else 0
+
+
+def _check_tactical(tdir: str) -> None:
+    """R11 (전술 영역별 설명 비용): README 6.11 에 적은 값. 결과 폴더가 없으면 건너뛴다."""
+    if not os.path.exists(os.path.join(tdir, "regional.csv")):
+        return
+    from .tactical_report import _agg_regional, group_of
+    reg = _agg_regional(pd.read_csv(os.path.join(tdir, "regional.csv")))
+    own = reg[(reg.source == "own") & (reg.split == "grouped")]
+
+    def med(group: str, region: str, col: str = "F4") -> float:
+        return float(own[(own.group == group) & (own.region == region)][col].median())
+
+    for grp, vals in {"학습(치고 빠지기)": (.857, .942, .997, .995), "학습(추격)": (.788, .858, .985, .992),
+                      "BT-v2": (.817, .991, .998, 1.000)}.items():
+        for rn, v in zip(("head_on", "offensive", "defensive", "neutral"), vals):
+            check(f"R11 F4 {grp} {rn}", med(grp, rn), v, .0006, "6.11 표 R11-2")
+    check("R11 F4 혼합 α=0.5 정면 조우", med("혼합 α=0.5", "head_on"), .608, .0006, "6.11")
+    check("R11 F4 Shield 정면 조우", med("Shield", "head_on"), .654, .0006, "6.11")
+
+    es = pd.read_csv(os.path.join(tdir, "error_share.csv"))
+    es["group"] = es.cond.map(group_of)
+    e8 = es[(es.depth == 8) & (es.region == "head_on")]
+    per = e8.groupby("cond").agg(err=("err_share", "mean"), t=("time_share", "mean"), grp=("group", "first"))
+    check("R11 정면 조우 오차 몫 최소(깊이 8, 조건별)", per.err.min(), .19, .006, "6.11 표 R11-8")
+    check("R11 정면 조우 오차 몫 최대(깊이 8, 조건별)", per.err.max(), .73, .006, "6.11 표 R11-8")
+    check("R11 정면 조우 시간 비율 최대(깊이 8, 조건별)", per.t.max(), .10, .006, "6.11 표 R11-8")
+    check("R11 정면 조우 오차 몫 > 시간 비율인 조건 수(73개 중)", int((per.err > per.t).sum()), 73, 0, "6.11 표 R11-8")
+
+
+def _check_distill(ddir: str) -> None:
+    """R10 (트리를 정책으로 돌린 성능)과 보조 시험: README 6.11 에 적은 값. 결과 폴더가 없으면 건너뛴다."""
+    if not os.path.exists(os.path.join(ddir, "games.csv")):
+        return
+    from .distill_report import load, paired, group_of, _seed_scores, MARGIN
+    g, f, c, _ = load(ddir)
+    a, _s0 = paired(g)
+    ds = c.set_index("cond")["d_star"]
+    learned = [x for x in c.cond if group_of(x) in ("학습(치고 빠지기)", "학습(추격)")]
+    la = a[a.cond.isin(learned)]
+    check("R10 학습 정책 수", len(learned), 20, 0, "6.11")
+    check("R10 학습 정책 중 깊이 ≤16 에서 한계 안에 든 정책 수", la[la.delta >= -MARGIN].cond.nunique(), 0, 0, "6.11")
+    check("R10 깊이 16 Δ 중앙값(학습)", la[la.depth == 16].delta.median(), -.246, .0006, "6.11")
+    at_d = pd.Series({x: float(a[(a.cond == x) & (a.depth == int(min(16, ds[x])))].delta.iloc[0]) for x in learned})
+    check("R10 D* 깊이 Δ 최소(학습)", at_d.min(), -.676, .0006, "6.11"); check("R10 D* 깊이 Δ 최대(학습)", at_d.max(), -.238, .0006, "6.11")
+    check("R10 D* 깊이 Δ 중앙값(학습)", at_d.median(), -.556, .0006, "6.11")
+    m = f[f.cond.isin(learned)].merge(a[["cond", "depth", "delta"]], on=["cond", "depth"])
+    hi = m[m.r2_fresh >= .97]
+    check("R10 새 교전 R² ≥ 0.97 쌍의 수", len(hi), 20, 0, "6.11"); check("R10 새 교전 R² ≥ 0.97 쌍의 Δ 중앙값", hi.delta.median(), -.384, .0006, "6.11")
+    f4 = f[(f.depth == 4) & f.cond.isin(learned)]
+    grp = f4.cond.map(group_of)
+    check("R10 깊이 4 새 교전 R²(치고 빠지기)", f4[grp == "학습(치고 빠지기)"].r2_fresh.median(), .945, .0006, "6.11")
+    check("R10 깊이 4 새 교전 R²(추격)", f4[grp == "학습(추격)"].r2_fresh.median(), .904, .0006, "6.11")
+    for gp, sc0, sc16 in [("학습(치고 빠지기)", .704, .450)]:
+        cs = [x for x in c.cond if group_of(x) == gp]
+        sg = g[g.cond.isin(cs)]
+        check(f"R10 {gp} 원본 점수", sg[sg.depth == 0].score.mean(), sc0, .0006, "6.11 표 R10-5")
+        check(f"R10 {gp} 깊이 16 트리 점수", sg[sg.depth == 16].score.mean(), sc16, .0006, "6.11 표 R10-5")
+
+    # DAgger
+    dgp = os.path.join(ddir, "dagger_games.csv")
+    if os.path.exists(dgp):
+        dg = pd.read_csv(dgp); df = pd.read_csv(os.path.join(ddir, "dagger_fits.csv"))
+        orig = _seed_scores(g[g.depth == 0], ["cond"]).rename(columns={"score": "s0"})
+        da = _seed_scores(dg[dg.cond.isin(learned)], ["cond", "depth", "iteration"]).merge(orig, on=["cond", "seed"]).assign(delta=lambda x: x.score - x.s0)
+        for d, med, ok in [(4, -.374, 0), (8, -.088, 2), (16, -.028, 16)]:
+            x = da[(da.depth == d) & (da.iteration == 3)].groupby("cond").delta.agg(["mean", "std", "size"])
+            check(f"DAgger 3회 깊이 {d} Δ 중앙값", x["mean"].median(), med, .0006, "6.11 표 R10-6")
+            check(f"DAgger 3회 깊이 {d} 한계 안 정책 수", int((x["mean"] >= -MARGIN).sum()), ok, 0, "6.11 표 R10-6")
+            if d == 16:
+                up = x["mean"] + 1.96 * x["std"] / np.sqrt(x["size"])
+                check("DAgger 3회 깊이 16 상한<0 정책 수", int((up < 0).sum()), 10, 0, "6.11 표 R10-6")
+        l16 = df[(df.depth == 16) & (df.iteration == 3) & df.cond.isin(learned)].n_leaves
+        check("DAgger 깊이 16 잎 수 중앙값(학습)", l16.median(), 11997, 1, "6.11 표 R10-6")
+        r1 = df[(df.depth == 4) & (df.iteration == 1)]
+        check("DAgger 1회차 시작 R² 깊이 4(치고 빠지기)", r1[r1.cond.map(group_of) == "학습(치고 빠지기)"].r2_on_policy_before.median(), .291, .0006, "6.11")
+        check("DAgger 1회차 시작 R² 깊이 4(추격)", r1[r1.cond.map(group_of) == "학습(추격)"].r2_on_policy_before.median(), -.414, .0006, "6.11")
+
+    # 트리 적합 노이즈
+    ngp = os.path.join(ddir, "noise_games.csv")
+    if os.path.exists(ngp):
+        ng = pd.read_csv(ngp)
+        base = _seed_scores(g[g.depth == 0], ["cond"]).rename(columns={"score": "s0"})
+        nb = _seed_scores(ng, ["cond", "depth", "boot"]).merge(base, on=["cond", "seed"]).assign(delta=lambda x: x.score - x.s0)
+        nb = nb.groupby(["cond", "depth", "boot"]).delta.mean().reset_index()
+        v2 = nb[nb.cond == "BT-v2"]
+        check("노이즈 BT-v2 깊이 8 부트스트랩 Δ 최대", v2[v2.depth == 8].delta.max(), -.115, .0006, "6.11 표 R10-7")
+        check("노이즈 BT-v2 깊이 16 부트스트랩 Δ 최소", v2[v2.depth == 16].delta.min(), .006, .0006, "6.11 표 R10-7")
+
+    # 트리 정책 이탈 영역
+    rgp = os.path.join(ddir, "region_error.csv")
+    if os.path.exists(rgp):
+        r = pd.read_csv(rgp)
+        r["group"] = r.cond.map(group_of)
+        x = r[(r.group == "학습(치고 빠지기)") & (r.depth == 8)]
+        t, o = x[x.states == "tree-visited"], x[x.states == "original-visited"]
+        check("이탈 영역 트리 방문 방어 시간 비율(깊이 8, 치고 빠지기)", t.time_defensive.median(), .58, .006, "6.11 표 R10-8")
+        check("이탈 영역 트리 방문 방어 오차 몫(깊이 8, 치고 빠지기)", t.err_defensive.median(), .59, .006, "6.11 표 R10-8")
+        check("이탈 영역 원본 방문 방어 시간 비율(깊이 8, 치고 빠지기)", o.time_defensive.median(), .20, .006, "6.11 표 R10-8")
+        check("이탈 영역 원본 방문 방어 오차 몫(깊이 8, 치고 빠지기)", o.err_defensive.median(), .01, .006, "6.11 표 R10-8")
 
 
 def main():

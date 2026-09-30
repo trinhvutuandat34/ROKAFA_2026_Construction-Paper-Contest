@@ -1,0 +1,19 @@
+{
+  "conditions": [
+    "BT-v2",
+    "BT-v3",
+    "BTO-s0-b300",
+    "RL-s0-b300-a1.00",
+    "RL-s11-b300-a1.00",
+    "RL-s1-b300-a1.00",
+    "RL-s9-b300-a1.00"
+  ],
+  "depths": [
+    8,
+    16
+  ],
+  "n_boot": 5,
+  "n_eval": 100,
+  "eval_seed0": 2000000,
+  "elapsed_s": 244.7
+}

@@ -224,5 +224,8 @@ if __name__ == "__main__":
     a = ap.parse_args()
     if not a.report_only:
         run(a.outdir, a.main_dir, a.hyb_dir, a.workers, a.n_seeds, a.seed0, a.conds)
-    from .distill_report import build
+    from .distill_report import build, plot_retention, plot_dagger
     print(build(a.outdir))
+    print(plot_retention(a.outdir, os.path.join(a.outdir, "fig_retention.png")))
+    if os.path.exists(os.path.join(a.outdir, "dagger_games.csv")):
+        print(plot_dagger(a.outdir, os.path.join(a.outdir, "fig_dagger.png")))

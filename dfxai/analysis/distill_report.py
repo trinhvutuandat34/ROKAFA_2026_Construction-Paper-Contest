@@ -111,7 +111,8 @@ def build(outdir: str, out_path: str = "paper/results_distill.md") -> str:
     out.append("충실도는 트리 학습에 쓰지 않은 새 시드의 원본 교전(청군)에서 잰 분산 가중 R² 다.\n\n")
     out.append(md_table(pd.DataFrame(rows), {"Δ 중앙값": "{:+.3f}", "Δ ≥ −0.05 비율": "{:.2f}"}) + "\n")
     r, p = stats.spearmanr(base.r2_fresh, base.delta)
-    out.append(f"\n학습 정책 전체의 (충실도, Δ) 순위상관 ρ={r:.2f} (p={p:.1e}, n={len(base)}쌍). ")
+    out.append(f"\n학습 정책 전체의 (충실도, Δ) 순위상관 ρ={r:.2f} (n={len(base)}쌍; 같은 정책의 여러 깊이를 독립 표본으로 "
+               f"본 값이라 p={p:.1e} 는 실제보다 작게 나온다 — 독립 단위는 정책 20개). ")
     d16 = base[base.depth == 16]
     out.append(f"깊이 16 트리의 새 교전 충실도 중앙값 {d16.r2_fresh.median():.3f}, Δ 중앙값 {d16.delta.median():+.3f}.\n")
     ok = dp[[c for c in dp.index if group_of(c) in ("학습(치고 빠지기)", "학습(추격)")]]
@@ -151,11 +152,139 @@ def build(outdir: str, out_path: str = "paper/results_distill.md") -> str:
     out.append("\n### 표 R10-5. 종료 사유와 위반율: 원본 대 깊이 16 트리\n")
     out.append(md_table(pd.DataFrame(rows), {k: "{:.3f}" for k in ("점수", "시간종료", "격추로 끝남", "지면충돌", "공중충돌", "위반율")}) + "\n")
 
+    out.extend(_dagger_sections(outdir, games))
+    out.extend(_noise_sections(outdir, games))
+    out.extend(_region_sections(outdir))
     doc = "\n".join(out)
     os.makedirs(os.path.dirname(os.path.abspath(out_path)) or ".", exist_ok=True)
     open(out_path, "w", encoding="utf-8").write(doc)
     a.to_csv(os.path.join(outdir, "retention.csv"), index=False)
     return out_path
+
+
+def _seed_scores(g: pd.DataFrame, keys: list[str]) -> pd.DataFrame:
+    return g.groupby(keys + ["seed"]).score.mean().reset_index()
+
+
+def _dagger_sections(outdir: str, games: pd.DataFrame) -> list[str]:
+    gp, fp = os.path.join(outdir, "dagger_games.csv"), os.path.join(outdir, "dagger_fits.csv")
+    if not (os.path.exists(gp) and os.path.exists(fp)):
+        return ["\n> DAgger 보조 시험(`distill_dagger.py`)은 아직 실행되지 않았다.\n"]
+    dg, df = pd.read_csv(gp), pd.read_csv(fp)
+    man = json.load(open(os.path.join(outdir, "dagger_manifest.json"), encoding="utf-8"))
+    orig = _seed_scores(games[games.depth == 0], ["cond"]).rename(columns={"score": "s0"})
+    plain = _seed_scores(games[games.depth > 0], ["cond", "depth"])
+    da = _seed_scores(dg, ["cond", "depth", "iteration"])
+    d_plain = plain.merge(orig, on=["cond", "seed"]).assign(delta=lambda x: x.score - x.s0).groupby(["cond", "depth"]).delta.mean()
+    d_it = da.merge(orig, on=["cond", "seed"]).assign(delta=lambda x: x.score - x.s0).groupby(["cond", "depth", "iteration"]).delta.mean()
+    depths = man["depths"]
+    out = ["\n### 표 R10-6. DAgger 보조 시험: 트리가 방문한 상태를 원본에게 물어 데이터에 더한 뒤 다시 적합 (분포 이동 확인)\n",
+           f"반복 {man['n_iter']}회, 반복마다 학습용 시드 {man['n_train']}개 × 상대 2종(청군)에서 트리를 돌려 방문 상태를 모으고 원본 정책으로 정답을 붙였다. "
+           "평가는 R10 과 같은 새 시드다. 셀은 Δ 중앙값(Δ ≥ −0.05 인 정책 수/전체)이며 '기본'은 R10-1 의 트리(로그만 사용)다.\n"]
+    rows = []
+    for g in ("BT-v2", "복제본", "학습(치고 빠지기)", "학습(추격)"):
+        conds = [c for c in d_plain.index.get_level_values(0).unique() if group_of(c) == g and c in set(dg.cond)]
+        if not conds:
+            continue
+        for d in depths:
+            r = {"정책 묶음": f"{g} (n={len(conds)})", "깊이": d, "기본": _fmt_delta(pd.Series({c: d_plain[(c, d)] for c in conds}))}
+            for it in range(1, man["n_iter"] + 1):
+                r[f"DAgger {it}회"] = _fmt_delta(pd.Series({c: d_it[(c, d, it)] for c in conds}))
+            rows.append(r)
+    out.append(md_table(pd.DataFrame(rows)) + "\n")
+    rows = []
+    df["group"] = df["cond"].map(group_of)
+    for g in ("BT-v2", "복제본", "학습(치고 빠지기)", "학습(추격)"):
+        for d in depths:
+            sub = df[(df.group == g) & (df.depth == d)]
+            if sub.empty:
+                continue
+            r = {"정책 묶음": g, "깊이": d}
+            for it in range(1, man["n_iter"] + 1):
+                r[f"{it}회차 시작 시 R²"] = float(sub[sub.iteration == it].r2_on_policy_before.median())
+            r["최종 잎 수"] = int(sub[sub.iteration == man["n_iter"]].n_leaves.median())
+            rows.append(r)
+    out.append("**트리가 방문한 상태에서 원본 지령을 재현한 R²** (각 회차에서 트리를 갱신하기 전, 정책 묶음 중앙값). 원본이 방문한 상태에서의 충실도(R10-2 의 새 교전 R²)와 비교하면 분포 이동의 크기가 보인다.\n")
+    out.append(md_table(pd.DataFrame(rows), {f"{i}회차 시작 시 R²": "{:.3f}" for i in range(1, man["n_iter"] + 1)}) + "\n")
+
+    # 학습 정책 20개 요약: 마지막 회차의 Δ 가 허용 한계 안인가, 원본보다 유의하게 낮은가
+    last = man["n_iter"]
+    lp = [c for c in d_plain.index.get_level_values(0).unique() if group_of(c) in ("학습(치고 빠지기)", "학습(추격)") and c in set(dg.cond)]
+    conds_tbl = pd.read_csv(os.path.join(outdir, "conds.csv")).set_index("cond")
+    ds = da[da.iteration == last].merge(orig, on=["cond", "seed"]).assign(delta=lambda x: x.score - x.s0)
+    rows, ok_depth = [], {}
+    for d in depths:
+        x = ds[(ds.depth == d) & ds.cond.isin(lp)].groupby("cond").delta.agg(["mean", "std", "size"])
+        hi = x["mean"] + 1.96 * x["std"] / np.sqrt(x["size"])
+        base = pd.Series({c: d_plain[(c, d)] for c in x.index})
+        rows.append({"깊이": d, "잎 수(중앙값)": int(df[(df.depth == d) & (df.iteration == last) & df.cond.isin(lp)].n_leaves.median()),
+                     "기본 Δ 중앙값": float(base.median()), f"DAgger {last}회 Δ 중앙값": float(x["mean"].median()),
+                     "Δ ≥ −0.05 정책 수": int((x["mean"] >= -MARGIN).sum()), "Δ 95% 상한 < 0 정책 수": int((hi < 0).sum()),
+                     "기본보다 Δ 가 커진 정책 수": int(((x["mean"] - base.loc[x.index]) > 0).sum())})
+        for c in x.index[x["mean"] >= -MARGIN]:
+            ok_depth[c] = min(ok_depth.get(c, 99), d)
+    out.append(f"**학습 정책 {len(lp)}개 요약 (DAgger {last}회 후)**. Δ 95% 상한은 시드 100개 대응 차이의 정규근사 구간이다.\n")
+    out.append(md_table(pd.DataFrame(rows), {"깊이": "{:.0f}", "잎 수(중앙값)": "{:.0f}", "기본 Δ 중앙값": "{:+.3f}",
+                                             f"DAgger {last}회 Δ 중앙값": "{:+.3f}", "Δ ≥ −0.05 정책 수": "{:.0f}",
+                                             "Δ 95% 상한 < 0 정책 수": "{:.0f}", "기본보다 Δ 가 커진 정책 수": "{:.0f}"}) + "\n")
+    dd_ok = pd.Series({c: ok_depth.get(c, np.nan) for c in lp})
+    cnt = {int(k): int(v) for k, v in dd_ok.value_counts().items()}
+    line = f"허용 한계 안에 들어온 가장 얕은 깊이(격자 {tuple(depths)} 중): " + ", ".join(f"깊이 {k}: {v}개" for k, v in sorted(cnt.items())) + \
+           f", 격자 안에 없음 {int(dd_ok.isna().sum())}개."
+    v = dd_ok.dropna()
+    if len(v) >= 5 and v.nunique() > 1:
+        r_, p_ = stats.spearmanr(conds_tbl.loc[v.index, "d_star"], v)
+        line += f" 이 깊이와 D\\* 의 순위상관 ρ={r_:+.2f} (p={p_:.2f}, n={len(v)}; 깊이가 격자 3점이라 검정력이 낮다)."
+    out.append(line + "\n")
+    return out
+
+
+def _region_sections(outdir: str) -> list[str]:
+    p = os.path.join(outdir, "region_error.csv")
+    if not os.path.exists(p):
+        return []
+    r = pd.read_csv(p)
+    r["group"] = r["cond"].map(group_of)
+    regions = [("head_on", "정면 조우"), ("offensive", "공격"), ("defensive", "방어"), ("neutral", "중립")]
+    out = ["\n### 표 R10-8. 트리 정책의 오차는 어느 전술 영역에서 나오는가\n",
+           "트리를 정책으로 돌려 방문한 상태(트리 방문)와, 같은 시드에서 원본이 직접 싸워 방문한 상태(원본 방문) 각각에서 "
+           "트리 지령과 원본 지령의 제곱오차를 4개 전술 영역으로 나눴다(상대 BT-v2·BT-v3, 시드 30개, 진영 0). "
+           "셀은 `머문 시간 비율 / 오차 몫`의 묶음 중앙값이고 미설명 분산은 1 − R² 다. R² 의 분모는 각 상태 집합에서 원본 지령의 분산이라 "
+           "두 행의 미설명 분산은 같은 기준의 절대 오차가 아니다. 영역별 몫과 머문 시간을 비교하는 용도로 읽는다.\n"]
+    rows = []
+    for g in ("학습(치고 빠지기)", "학습(추격)", "BT-v2", "복제본"):
+        for d in sorted(r.depth.unique()):
+            for st, lab in (("original-visited", "원본 방문"), ("tree-visited", "트리 방문")):
+                x = r[(r.group == g) & (r.depth == d) & (r.states == st)]
+                if x.empty:
+                    continue
+                row = {"정책 묶음": f"{g} (n={x.cond.nunique()})", "깊이": int(d), "상태": lab, "미설명 분산": float(x.unexplained.median())}
+                for k, ko in regions:
+                    row[ko] = f"{x['time_' + k].median():.2f} / {x['err_' + k].median():.2f}"
+                rows.append(row)
+    out.append(md_table(pd.DataFrame(rows), {"깊이": "{:.0f}", "미설명 분산": "{:.3f}"}) + "\n")
+    return out
+
+
+def _noise_sections(outdir: str, games: pd.DataFrame) -> list[str]:
+    p = os.path.join(outdir, "noise_games.csv")
+    if not os.path.exists(p):
+        return []
+    ng = pd.read_csv(p)
+    man = json.load(open(os.path.join(outdir, "noise_manifest.json"), encoding="utf-8"))
+    orig = _seed_scores(games[games.depth == 0], ["cond"]).rename(columns={"score": "s0"})
+    plain = _seed_scores(games[games.depth > 0], ["cond", "depth"])
+    sn = _seed_scores(ng, ["cond", "depth", "boot"])
+    dn = sn.merge(orig, on=["cond", "seed"]).assign(delta=lambda x: x.score - x.s0).groupby(["cond", "depth", "boot"]).delta.mean().reset_index()
+    dp = plain.merge(orig, on=["cond", "seed"]).assign(delta=lambda x: x.score - x.s0).groupby(["cond", "depth"]).delta.mean()
+    rows = []
+    for (c, d), s in dn.groupby(["cond", "depth"]):
+        rows.append({"정책": c, "깊이": d, "R10-1 의 트리 Δ": float(dp[(c, d)]), "부트스트랩 트리 Δ 평균": float(s.delta.mean()),
+                     "표준편차": float(s.delta.std()), "최소": float(s.delta.min()), "최대": float(s.delta.max())})
+    out = ["\n### 표 R10-7. 트리 적합의 우연: 훈련 교전을 복원추출해 같은 깊이에서 트리를 다시 적합했을 때의 Δ\n",
+           f"부트스트랩 {man['n_boot']}회, 평가 시드는 R10 과 같다. BT-v2 처럼 깊이에 따라 Δ 가 비단조로 움직이는 정도가 트리 적합의 우연으로 설명되는지 본다.\n"]
+    out.append(md_table(pd.DataFrame(rows).sort_values(["정책", "깊이"]), {k: "{:+.3f}" for k in ("R10-1 의 트리 Δ", "부트스트랩 트리 Δ 평균", "최소", "최대")} | {"표준편차": "{:.3f}"}) + "\n")
+    return out
 
 
 # ------------------------------------------------------------------ 그림
@@ -180,11 +309,12 @@ def plot_retention(outdir: str, path: str, lang: str = "en") -> str:
     depths = list(GRID)
     xs = {d: i for i, d in enumerate(depths)}
     ink, muted, grid = "#0b0b0b", "#52514e", "#e4e3df"
-    fig, ax = plt.subplots(figsize=(7.2, 4.4), dpi=200)
+    fig, ax = plt.subplots(figsize=(7.2, 5.0), dpi=200)
     fig.patch.set_facecolor("#fcfcfb"); ax.set_facecolor("#fcfcfb")
     ax.axhline(0, color=muted, lw=1.0, zorder=1)
     ax.axhline(-MARGIN, color=muted, lw=1.0, ls=(0, (4, 3)), zorder=1)
-    ax.text(len(depths) - 0.55, -MARGIN + 0.012, T("tolerance −0.05", "허용 한계 −0.05"), color=muted, fontsize=8, ha="right", va="bottom")
+    ax.text(len(depths) - 0.45, 0.012, T("original\nlevel", "원본\n수준"), color=muted, fontsize=8, ha="left", va="bottom")
+    ax.text(len(depths) - 0.45, -MARGIN, T("tolerance\n−0.05", "허용 한계\n−0.05"), color=muted, fontsize=8, ha="left", va="top")
     ends = []
     for (en, ko, groups), col in zip(_FIG_GROUPS, _SERIES_COLORS):
         sub = a[a.group.isin(groups) & a.depth.isin(depths)]
@@ -199,16 +329,69 @@ def plot_retention(outdir: str, path: str, lang: str = "en") -> str:
     ax.set_xlabel(T("Depth of the distilled decision tree", "대리 결정트리 깊이"), color=ink, fontsize=10)
     ax.set_ylabel(T("Score change vs original policy\n(tree − original, paired by seed)", "원본 대비 점수 변화\n(트리 − 원본, 시드 대응)"), color=ink, fontsize=10)
     ax.set_ylim(-0.85, 0.18)
+    ax.set_xlim(-0.4, len(depths) + 0.45)
     ax.grid(axis="y", color=grid, lw=0.8); ax.set_axisbelow(True)
     for sp in ("top", "right"):
         ax.spines[sp].set_visible(False)
     for sp in ("left", "bottom"):
         ax.spines[sp].set_color(grid)
     ax.tick_params(colors=muted, labelsize=9)
-    leg = ax.legend(loc="lower right", frameon=False, fontsize=8.5, labelcolor=ink, handlelength=1.6)
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.17), ncol=2, frameon=False, fontsize=8.5, labelcolor=ink, handlelength=1.6)
     ax.set_title(T("Running the distilled tree as the policy: performance vs tree depth",
                    "대리 트리를 정책으로 돌렸을 때: 깊이별 성능"), color=ink, fontsize=11, loc="left")
     fig.tight_layout()
     fig.savefig(path, facecolor=fig.get_facecolor())
     plt.close(fig)
+    return path
+
+
+def plot_dagger(outdir: str, path: str, lang: str = "en") -> str:
+    """DAgger 반복에 따른 Δ. 학습 정책 20개(300세대)마다 옅은 선, 깊이별 중앙값은 굵은 선. 0회차는 로그만으로 적합한 트리."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from .labels import T, set_language
+    set_language(lang)
+    games = pd.read_csv(os.path.join(outdir, "games.csv"))
+    dg = pd.read_csv(os.path.join(outdir, "dagger_games.csv"))
+    fits = pd.read_csv(os.path.join(outdir, "dagger_fits.csv"))
+    man = json.load(open(os.path.join(outdir, "dagger_manifest.json"), encoding="utf-8"))
+    lp = [c for c in dg.cond.unique() if group_of(c) in ("학습(치고 빠지기)", "학습(추격)")]
+    orig = _seed_scores(games[(games.depth == 0) & games.cond.isin(lp)], ["cond"]).rename(columns={"score": "s0"})
+    plain = _seed_scores(games[(games.depth > 0) & games.cond.isin(lp)], ["cond", "depth"]).assign(iteration=0)
+    it = _seed_scores(dg[dg.cond.isin(lp)], ["cond", "depth", "iteration"])
+    allp = pd.concat([plain, it]).merge(orig, on=["cond", "seed"]).assign(delta=lambda x: x.score - x.s0)
+    d = allp.groupby(["cond", "depth", "iteration"]).delta.mean().reset_index()
+    depths = man["depths"]
+    leaves = {dp: int(fits[(fits.depth == dp) & (fits.iteration == man["n_iter"]) & fits.cond.isin(lp)].n_leaves.median()) for dp in depths}
+    xs = list(range(man["n_iter"] + 1))
+    ink, muted, grid = "#0b0b0b", "#52514e", "#e4e3df"
+    fig, ax = plt.subplots(figsize=(7.2, 4.8), dpi=200)
+    fig.patch.set_facecolor("#fcfcfb"); ax.set_facecolor("#fcfcfb")
+    ax.axhline(0, color=muted, lw=1.0, zorder=1)
+    ax.axhline(-MARGIN, color=muted, lw=1.0, ls=(0, (4, 3)), zorder=1)
+    ax.text(xs[-1] + 0.08, 0.012, T("original level", "원본 수준"), color=muted, fontsize=8, ha="left", va="bottom")
+    ax.text(xs[-1] + 0.08, -MARGIN - 0.008, T("tolerance −0.05", "허용 한계 −0.05"), color=muted, fontsize=8, ha="left", va="top")
+    for dp, col in zip(depths, _SERIES_COLORS):
+        sub = d[d.depth == dp]
+        for c, s in sub.groupby("cond"):
+            s = s.sort_values("iteration")
+            ax.plot(s.iteration, s.delta, color=col, lw=0.8, alpha=0.28, zorder=2)
+        med = sub.groupby("iteration").delta.median()
+        ax.plot(med.index, med.values, color=col, lw=2.0, marker="o", ms=6, mfc=col, mec="#fcfcfb", mew=1.2, zorder=4,
+                label=T(f"Depth {dp} (≈{leaves[dp]:,} leaves after DAgger)", f"깊이 {dp} (DAgger 후 잎 약 {leaves[dp]:,}개)"))
+    ax.set_xticks(xs); ax.set_xticklabels([T("log only", "로그만")] + [str(i) for i in xs[1:]], color=muted, fontsize=9)
+    ax.set_xlabel(T("DAgger iterations (tree-visited states relabelled by the original policy)", "DAgger 반복 횟수 (트리가 방문한 상태를 원본이 다시 라벨)"), color=ink, fontsize=10)
+    ax.set_ylabel(T("Score change vs original policy\n(tree − original, paired by seed)", "원본 대비 점수 변화\n(트리 − 원본, 시드 대응)"), color=ink, fontsize=10)
+    ax.set_ylim(-0.85, 0.12); ax.set_xlim(-0.2, xs[-1] + 0.95)
+    ax.grid(axis="y", color=grid, lw=0.8); ax.set_axisbelow(True)
+    for sp in ("top", "right"):
+        ax.spines[sp].set_visible(False)
+    for sp in ("left", "bottom"):
+        ax.spines[sp].set_color(grid)
+    ax.tick_params(colors=muted, labelsize=9)
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.19), ncol=1, frameon=False, fontsize=8.5, labelcolor=ink, handlelength=1.6)
+    ax.set_title(T(f"Performance gap of the tree policy over DAgger iterations (n={len(lp)} learned policies)",
+                   f"DAgger 반복에 따른 트리 정책의 성능 격차 (학습 정책 {len(lp)}개)"), color=ink, fontsize=10.5, loc="left")
+    fig.tight_layout(); fig.savefig(path, facecolor=fig.get_facecolor()); plt.close(fig)
     return path

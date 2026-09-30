@@ -202,3 +202,59 @@ def build(outdir: str, out_path: str = "paper/results_tactical.md", main_dir: st
     os.makedirs(os.path.dirname(os.path.abspath(out_path)) or ".", exist_ok=True)
     open(out_path, "w", encoding="utf-8").write(doc)
     return out_path
+
+
+# ------------------------------------------------------------------ 그림
+_SERIES_COLORS = ("#2a78d6", "#eb6834", "#1baf7a", "#eda100")      # 범주 팔레트 슬롯 1–4 (validate_palette.js 통과)
+EN_REGION = {"head_on": "Head-on", "offensive": "Offensive", "defensive": "Defensive", "neutral": "Neutral"}
+_FIG_GROUPS = (
+    ("Rule-based (BT-v1/v2/v3, BTO)", "규칙 기반 (BT-v1/v2/v3, BTO)", ("BT-v1", "BT-v2", "BT-v3", "BTO")),
+    ("Learned", "학습 정책", ("학습(치고 빠지기)", "학습(추격)")),
+    ("Linear hybrid α=0.5", "선형 혼합 α=0.5", ("혼합 α=0.5",)),
+    ("Shield", "Shield", ("Shield",)),
+)
+
+
+def plot_error_share(outdir: str, path: str, lang: str = "en", depth: int = 8) -> str:
+    """전역 트리의 미설명 분산이 나오는 영역. 회색 마름모는 시간 비율, 색 원은 묶음별 오차 몫의 중앙값."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from .labels import T, set_language
+    set_language(lang)
+    es = pd.read_csv(os.path.join(outdir, "error_share.csv"))
+    es = es[es.depth == depth].groupby(["cond", "region"]).agg(time_share=("time_share", "mean"), err_share=("err_share", "mean")).reset_index()
+    es["group"] = es["cond"].map(group_of)
+    ink, muted, grid = "#0b0b0b", "#52514e", "#e4e3df"
+    fig, ax = plt.subplots(figsize=(7.2, 4.2), dpi=200)
+    fig.patch.set_facecolor("#fcfcfb"); ax.set_facecolor("#fcfcfb")
+    order = list(REGIONS)
+    ypos = {rn: len(order) - 1 - i for i, rn in enumerate(order)}
+    tsh = es.groupby("region").time_share.median()
+    ax.scatter([tsh[rn] for rn in order], [ypos[rn] for rn in order], marker="D", s=46, facecolor="#fcfcfb", edgecolor=muted,
+               linewidths=1.4, zorder=4, label=T("Time spent in region (median of policies)", "영역에 머문 시간 비율 (정책 중앙값)"))
+    offs = np.linspace(-0.21, 0.21, len(_FIG_GROUPS))
+    for (en, ko, groups), col, off in zip(_FIG_GROUPS, _SERIES_COLORS, offs):
+        sub = es[es.group.isin(groups)]
+        med = sub.groupby("region").err_share.median()
+        q1, q3 = sub.groupby("region").err_share.quantile(0.25), sub.groupby("region").err_share.quantile(0.75)
+        for rn in order:
+            ax.plot([q1[rn], q3[rn]], [ypos[rn] + off] * 2, color=col, lw=1.6, alpha=0.45, zorder=2)
+        ax.scatter([med[rn] for rn in order], [ypos[rn] + off for rn in order], s=46, color=col, edgecolor="#fcfcfb", linewidths=1.0,
+                   zorder=5, label=T(en, ko) + f" — n={sub.cond.nunique()}")
+    ax.set_yticks([ypos[rn] for rn in order]); ax.set_yticklabels([T(EN_REGION[rn], REGION_KO[rn]) for rn in order], color=ink, fontsize=10)
+    ax.set_xlim(0, 1.0); ax.set_ylim(-0.6, len(order) - 0.4)
+    ax.set_xlabel(T(f"Share of the global depth-{depth} tree's unexplained variance (test episodes)",
+                    f"전역 깊이 {depth} 트리의 미설명 분산에서 차지하는 몫 (시험 교전)"), color=ink, fontsize=10)
+    ax.grid(axis="x", color=grid, lw=0.8); ax.set_axisbelow(True)
+    for sp in ("top", "right", "left"):
+        ax.spines[sp].set_visible(False)
+    ax.spines["bottom"].set_color(grid); ax.tick_params(colors=muted, labelsize=9, length=0)
+    ax.set_title(T(f"Where a depth-{depth} tree's error comes from, by region",
+                   f"깊이 {depth} 트리의 오차는 어느 영역에서 나오는가"), color=ink, fontsize=10.5, loc="left")
+    from matplotlib.lines import Line2D
+    h, l = ax.get_legend_handles_labels()
+    h.append(Line2D([0], [0], color=muted, lw=1.6, alpha=0.5)); l.append(T("Bar: interquartile range across policies", "막대: 정책 간 사분위 범위"))
+    ax.legend(h, l, loc="upper center", bbox_to_anchor=(0.5, -0.17), ncol=2, frameon=False, fontsize=8.3, labelcolor=ink)
+    fig.tight_layout(); fig.savefig(path, facecolor=fig.get_facecolor()); plt.close(fig)
+    return path
