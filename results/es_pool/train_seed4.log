@@ -1,2 +1,2 @@
 초기화: results/es/bc_init.npz (hidden=(32, 32), 1827 params)
-[gen    1] fit mean=  -6.019 max=   8.455 theta=   0.613 accept=0/1 lr=0.0070 alpha>=1.00 (23s)
+[gen    1] fit mean=  -6.019 max=   8.455 theta=   0.613 accept=0/1 lr=0.0070 alpha>=1.00 (14s)

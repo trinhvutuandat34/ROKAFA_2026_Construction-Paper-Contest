@@ -2,3 +2,4 @@
 [gen  301] fit mean=  -2.947 max=   3.249 theta=  -0.539 accept=176/301 lr=0.0025 alpha>=0.25 (2035s)
 [gen  350] fit mean=  -6.057 max=  -2.286 theta=  -4.218 accept=203/350 lr=0.0033 alpha>=0.25 (2875s)
 이어 학습: results/es_long/ckpt_seed2_gen00350.npz (350세대, lr=0.0033, accept=203/350) -> 1000세대
+이어 학습: results/es_long/ckpt_seed2_gen00350.npz (350세대, lr=0.0033, accept=203/350) -> 1000세대
