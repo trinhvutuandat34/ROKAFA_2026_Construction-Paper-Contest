@@ -8,6 +8,7 @@
   E2 하이브리드     results/extra_hyb       잔차형·게이팅형 시드 0–4, 100·200·300세대 + 원 모델
   E3 격추만 승리    results/extra_draw      무승부 규칙에서 학습·평가한 시드 0–4 (+ BT·BTO 비교)
                   results/extra_draw_hp   같은 300세대 모델을 본실험 규칙에서 평가
+  E4 학습 규모 확대  results/extra_big       개체군 64 × 후보당 16교전, 시드 0–2, 100·200·300세대
 
 평가가 끝나지 않은 실험은 건너뛰고 문서에 "평가 전"으로 적는다.
 """
@@ -297,6 +298,38 @@ def analyse_e3(outdir="results/extra_draw", hp_dir="results/extra_draw_hp",
     return "\n".join(out) + "\n", res
 
 
+# ------------------------------------------------------------ E4
+def analyse_e4(outdir="results/extra_big", main_dir="results/main") -> tuple[str, dict]:
+    t = cond_table(outdir)
+    t = t[[c.startswith("RL-") for c in t.index]].copy()
+    t["seed"] = [_parse(c)[1] for c in t.index]
+    t["gen"] = [_parse(c)[2] for c in t.index]
+    g_last = t.gen.max()
+    last = t[t.gen == g_last].sort_values("seed")
+    base = cond_table(main_dir)
+    base = base[[bool(re.match(r"RL-s\d+-b300-a1\.00$", c)) for c in base.index]]
+    b_mean = float(base.avg.mean())
+    m = float(last.avg.mean())
+    if m >= b_mean + 0.05 and bool((last.avg > b_mean).all()):
+        perf = "규모 확대로 성능이 오른다"
+    elif m < b_mean + 0.02:
+        perf = "오르지 않는다"
+    else:
+        perf = "소폭"
+    q75 = float(np.percentile(base.d95, 75))
+    high_d = perf == "규모 확대로 성능이 오른다" and bool((last.d95 >= q75).all())
+    res = dict(perf=perf, mean=m, base=b_mean, last=last, high_d=high_d, q75=q75)
+    out = ["## E4. 학습 규모 확대 (개체군 64 × 후보당 16교전, 시드 3개 × %d세대)\n" % g_last]
+    out.append(f"**사전 판정: {perf}.** {g_last}세대 3개 시드 상대 2종 평균 {m:.3f} "
+               f"(시드별 {', '.join(f'{x:.3f}' for x in last.avg)}), 본실험 300세대 20개 평균 {b_mean:.3f}. "
+               f"BT-v2 상대 {last.v2.mean():.3f}(본실험 {base.v2.mean():.3f}), BT-v3 상대 {last.v3.mean():.3f}"
+               f"(본실험 {base.v3.mean():.3f}). D\\*95 {', '.join(str(int(x)) for x in last.d95)} "
+               f"(본실험 중앙값 {base.d95.median():.0f}, 상위 사분위 {q75:.0f})"
+               + ("; 고성능 영역에서 설명 비용이 커질 가능성으로 보고한다." if high_d else ".") + "\n")
+    out.append(_md(t.sort_values(["seed", "gen"]), ["v2", "v3", "avg", "d95", "d90", "f4", "kill_win", "timeout"], "조건"))
+    return "\n".join(out) + "\n", res
+
+
 def main():
     ap = argparse.ArgumentParser(description="추가 실험 분석")
     ap.add_argument("--out", default="paper/results_extra.md")
@@ -307,7 +340,8 @@ def main():
     summary = {}
     for name, fn, d in (("E1", analyse_e1, "results/extra_long"),
                         ("E2", lambda: analyse_e2(diag=not a.no_diag), "results/extra_hyb"),
-                        ("E3", analyse_e3, "results/extra_draw")):
+                        ("E3", analyse_e3, "results/extra_draw"),
+                        ("E4", analyse_e4, "results/extra_big")):
         if not _done(d):
             parts.append(f"## {name}\n\n평가 전.\n")
             continue
@@ -323,8 +357,10 @@ def main():
         elif k == "E2":
             for kind, r in v.items():
                 print(k, kind, r["verdict"], r["n_comp"])
-        else:
+        elif k == "E3":
             print(k, v["verdict"], v["n_sig"])
+        else:
+            print(k, v["perf"], f"{v['mean']:.3f} vs {v['base']:.3f}")
 
 
 if __name__ == "__main__":

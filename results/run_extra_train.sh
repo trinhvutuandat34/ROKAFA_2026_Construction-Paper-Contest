@@ -7,6 +7,7 @@
 #   bash results/run_extra_train.sh        # 전부 (E1 다음 E2·E3)
 #   bash results/run_extra_train.sh e1     # E1 만
 #   bash results/run_extra_train.sh e23    # E2·E3 만
+#   bash results/run_extra_train.sh e4     # E4 학습 규모 확대 (개체군 64 × 후보당 16교전, 시드 0–2)
 STAGE=${1:-all}
 export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 PYTHONDONTWRITEBYTECODE=1
 cd "$(dirname "$0")/.."
@@ -24,6 +25,19 @@ done | xargs -P 5 -I{} bash -c "{}"
 echo "=== E1 끝 $(date)"
 fi
 [ "$STAGE" = e1 ] && exit 0
+
+if [ "$STAGE" = e4 ]; then
+  mkdir -p results/es_big
+  echo "=== E4 시작 $(date)"
+  for s in 0 1 2; do
+    python -m dfxai.rl.train_es --generations 300 --pop 64 --episodes 16 --sigma 0.05 --lr 0.01 \
+           --workers ${WORKERS:-4} --checkpoint-every 25 --seed $s --tag seed$s \
+           --init results/es/bc_init.npz --outdir results/es_big > results/es_big/train_seed$s.log 2>&1
+  done
+  echo "=== E4 끝 $(date)"
+  touch results/EXTRA_E4_DONE
+  exit 0
+fi
 
 echo "=== E2·E3 시작 $(date)"
 {
