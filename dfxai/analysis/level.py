@@ -92,6 +92,36 @@ def tradeoff(hp_dir: str, main_dir: str = "results/main", gens=(300, 600, 1000))
     return assoc, price
 
 
+def heldout(b1_dir: str, ref_dir: str = "results/level_heldout_ref", gen: int = FINAL) -> tuple[str, dict] | None:
+    """보류 상대 보조 점검(수준향상_사전기준.md 1-1절): 격추 우선 학습 모델 2개(KF) 상대 점수."""
+    if not (os.path.exists(os.path.join(b1_dir, "episodes.csv"))
+            and os.path.exists(os.path.join(ref_dir, "episodes.csv"))):
+        return None
+    ep = pd.concat([pd.read_csv(os.path.join(d, "episodes.csv")) for d in (b1_dir, ref_dir)], ignore_index=True)
+    sc = ep.pivot_table(index="cond", columns="opponent", values="score", aggfunc="mean")
+    kf = [c for c in sc.columns if c.startswith("KF-")]
+    sc["H"] = sc[kf].mean(axis=1)
+    rule = sc.loc[[c for c in sc.index if c.startswith("BT")], "H"]           # BT-v1–3, BTO
+    rl = sc.loc[[c for c in sc.index if re.match(r"RL-s\d+-b300-a1\.00$", c)], "H"]
+    b1 = sc.loc[[c for c in sc.index if c.startswith("POOL-")]].copy()
+    b1["gen"] = [_parse(c)[2] for c in b1.index]
+    g = gen if (b1.gen == gen).any() else int(b1.gen.max())
+    last = b1[b1.gen == g]
+    ref_rule, ref_rl = float(rule.max()), float(rl.mean())
+    n = int(((last.H > ref_rule) & (last.H > ref_rl)).sum())
+    verdict = "보류 상대 일반화 확인" if n >= 3 else ("부분" if n >= 1 else "확인되지 않음")
+    out = [f"\n### 표 B1-6. 보류 상대 보조 점검 (격추 우선 학습 모델 2개, {g}세대)\n"]
+    out.append(f"**사전 판정: {verdict}.** H 점수가 행동트리·BTO 최고값({ref_rule:.3f}, {rule.idxmax()})과 "
+               f"본실험 학습 모델 20개 평균({ref_rl:.3f})을 모두 넘은 시드 {n}개/5.\n")
+    cols = kf + [c for c in sc.columns if c.startswith("PPO-")] + ["H"]
+    show = pd.concat([sc.loc[rule.index, cols], sc.loc[last.index, cols]])
+    show.loc["(본실험 학습 모델 20개 평균)"] = sc.loc[rl.index, cols].mean()
+    out.append(md_table(show.reset_index().rename(columns={"cond": "조건"}), {c: "{:.3f}" for c in cols}))
+    curve = b1.groupby("gen")["H"].mean()
+    out.append("\nB1 5개 시드 평균 H 점수(세대별): " + ", ".join(f"{k}세대 {v:.3f}" for k, v in curve.items()) + ".\n")
+    return "\n".join(out), dict(verdict=verdict, n=n, ref_rule=ref_rule, ref_rl=ref_rl, last=last, curve=curve)
+
+
 def analyse(prefix="results/level_b1", main_dir="results/main") -> tuple[str, dict]:
     hp_dir, draw_dir, pool_dir = f"{prefix}_hp", f"{prefix}_draw", f"{prefix}_pool"
     hp = _with_meta(cond_table(hp_dir))
@@ -132,6 +162,9 @@ def analyse(prefix="results/level_b1", main_dir="results/main") -> tuple[str, di
         nl = new[new.gen == gen]
         out.append(_md(pd.concat([ref, nl[ref.columns]]), ["v2", "v3", "avg", "d95", "kill_win", "timeout"], "조건"))
     res = dict(judge=j, hp=hp)
+    ho = heldout(f"{prefix}_heldout", gen=gen)
+    if ho is not None:
+        out.append(ho[0]); res["heldout"] = ho[1]
     try:
         assoc, price = tradeoff(hp_dir, main_dir)
         res["assoc"], res["price"] = assoc, price
@@ -158,7 +191,8 @@ def main():
     with open(a.out, "w", encoding="utf-8") as f:
         f.write(head + txt)
     j = res["judge"]
-    print(f"저장: {a.out}\n종합 {j['overall']} | T1 {j['t1']} ({j['n_bto']}/{j['n_bt2']}) | T2 {j['t2']} | T3 {j['t3']} ({j['n_kill']})")
+    print(f"저장: {a.out}\n종합 {j['overall']} | T1 {j['t1']} ({j['n_bto']}/{j['n_bt2']}) | T2 {j['t2']} | T3 {j['t3']} ({j['n_kill']})"
+          + (f" | 보류 상대 점검 {res['heldout']['verdict']} ({res['heldout']['n']})" if "heldout" in res else ""))
 
 
 if __name__ == "__main__":

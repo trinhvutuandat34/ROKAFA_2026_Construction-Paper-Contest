@@ -105,20 +105,29 @@ def build_condition(spec: dict):
                         rl, alpha=float(spec["alpha"]))
 
 
+def _opponent(opp_version):
+    """상대 명세 -> (정책, 관측의 α, 이름). 정수는 행동트리 버전, (이름, 경로) 는 학습 정책 상대
+    (--opp-rl, 보류 상대 보조 점검). 학습 정책 상대는 순수 정책(α = 1.0)으로 둔다."""
+    if isinstance(opp_version, (int, np.integer)):
+        return BTPolicy(version=int(opp_version)), 0.0, f"BT-v{int(opp_version)}"
+    name, path = opp_version
+    return MLPPolicy.load(path), 1.0, name
+
+
 def _one_job(args):
     spec, opp_version, seed, side, record, *rest = args
     env_opts = rest[0] if rest else {}
     pol = build_condition(spec)
-    opp = BTPolicy(version=opp_version)
+    opp, a_opp, opp_name = _opponent(opp_version)
     env = make_env(env_opts)
     alpha = float(spec.get("alpha", 1.0 if spec["kind"] in ("rl", "shield", "residual", "gating") else 0.0))
 
     if side == 0:                      # 평가 대상이 청군
-        out = run_episode(pol, opp, seed=seed, alpha=alpha, alpha_red=0.0,
+        out = run_episode(pol, opp, seed=seed, alpha=alpha, alpha_red=a_opp,
                           env=env, record=record)
         res, ob, ac = out if record else (out, None, None)
     else:                              # 진영 교대: 평가 대상이 홍군
-        res = run_episode(opp, pol, seed=seed, alpha=0.0, alpha_red=alpha,
+        res = run_episode(opp, pol, seed=seed, alpha=a_opp, alpha_red=alpha,
                           env=env, record=False)
         ob, ac = None, None
 
@@ -129,7 +138,7 @@ def _one_job(args):
         cond=spec["name"], kind=spec["kind"], alpha=alpha,
         bt_version=spec.get("bt_version", -1), ckpt=spec.get("ckpt", ""),
         budget=spec.get("budget", -1), train_seed=spec.get("train_seed", -1),
-        opponent=f"BT-v{opp_version}", seed=seed, side=side,
+        opponent=opp_name, seed=seed, side=side,
         score=score, win=int(win == 1), draw=int(win == 0), loss=int(win == -1),
         outcome=res.outcome, duration=res.duration,
         damage_dealt=res.damage_dealt if side == 0 else res.damage_taken,
@@ -252,6 +261,9 @@ def main():
     ap.add_argument("--gate-ckpts", nargs="*", default=[],
                     help="게이팅형 혼합 체크포인트 (train_es_hybrid.py --kind gating). 조건명 GATE-s<S>-b<G>")
     ap.add_argument("--no-bt", action="store_true", help="BT 3종 조건을 넣지 않음")
+    ap.add_argument("--opp-rl", nargs="*", default=[],
+                    help="학습 정책 상대 이름=체크포인트 (예: KF-s0=results/es_killfirst/ckpt_seed0_gen00300.npz). "
+                         "--opponents 의 행동트리 상대 뒤에 더한다 (보류 상대 보조 점검)")
     ap.add_argument("--rl-prefix", default="RL",
                     help="순수 학습 정책 조건명의 접두어. RL 이 아니면 <접두어>-s<S>-b<G> (예: 수준 향상 실험 POOL)")
     ap.add_argument("--episode-time", type=float, default=None,
@@ -304,8 +316,8 @@ def main():
             env_opts[key] = val
     if a.sixdof:
         env_opts["sixdof"] = True
-    run(conds, tuple(a.opponents), a.n_seeds, a.workers, a.outdir,
-        a.record_episodes, env_opts=env_opts)
+    opps = tuple(a.opponents) + tuple(tuple(x.split("=", 1)) for x in a.opp_rl)
+    run(conds, opps, a.n_seeds, a.workers, a.outdir, a.record_episodes, env_opts=env_opts)
 
 
 if __name__ == "__main__":
