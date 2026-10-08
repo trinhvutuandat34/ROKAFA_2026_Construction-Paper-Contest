@@ -2,3 +2,4 @@
 [gen    1] fit mean=  -3.365 max=   9.448 theta=   1.598 accept=0/1 lr=0.0070 alpha>=1.00 (17s)
 [gen   50] fit mean=  -5.126 max=   6.220 theta=   6.065 accept=26/50 lr=0.0025 alpha>=1.00 (728s)
 [gen  100] fit mean=  -3.051 max=  13.175 theta=   6.543 accept=53/100 lr=0.0029 alpha>=1.00 (1433s)
+[gen  150] fit mean=   2.084 max=  19.813 theta=   4.460 accept=78/150 lr=0.0025 alpha>=1.00 (2332s)
