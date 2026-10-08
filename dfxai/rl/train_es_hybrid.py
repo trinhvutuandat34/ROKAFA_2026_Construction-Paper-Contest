@@ -30,7 +30,7 @@ from ..agents.hybrid import MLPPolicy
 from ..agents.residual import ResidualPolicy
 from ..agents.gating import GatingPolicy
 from .shaping import potential, episode_fitness
-from .train_es import _rank_transform, _dump_history
+from .train_es import _rank_transform, _dump_history, load_resume
 
 
 def _make(kind: str, theta: np.ndarray, cfg: dict):
@@ -67,10 +67,19 @@ def _rollout(args):
     return total / len(seeds)
 
 
+def _draw_generation(rng, episodes, opponents, pop, n_par):
+    """한 세대의 난수. 학습 루프와 이어 학습의 난수 되감기가 함께 쓴다."""
+    seeds = rng.integers(0, 10 ** 6, episodes)
+    opps = np.array([opponents[i % len(opponents)] for i in range(episodes)])
+    rng.shuffle(opps)
+    eps = rng.normal(0.0, 1.0, (pop // 2, n_par))
+    return seeds, opps, np.concatenate([eps, -eps], axis=0)
+
+
 def train(kind: str, generations=200, pop=32, sigma=0.05, lr=0.01, episodes=8, seed=0,
           workers=1, opponents=(1, 2), outdir="results/es_hybrid", checkpoint_every=50,
           tag="seed0", fitness="default", beta=0.35, bt_version=2, rl_ckpt=None,
-          gate_hidden=(8,)):
+          gate_hidden=(8,), resume=None, resume_history=None):
     os.makedirs(outdir, exist_ok=True)
     rng = np.random.default_rng(seed)
     if kind == "residual":
@@ -87,15 +96,28 @@ def train(kind: str, generations=200, pop=32, sigma=0.05, lr=0.01, episodes=8, s
     print(f"[{kind}] 학습 파라미터 {n_par}개, pop {pop}, 후보당 {episodes}교전, "
           f"σ {sigma}, lr {lr}" + (f", β {beta}" if kind == "residual" else f", rl {rl_ckpt}"),
           flush=True)
-    lr_eff, n_accept, history = lr, 0, []
+    lr_eff, n_accept, history, start_gen, t_offset = lr, 0, [], 0, 0.0
+    if resume:
+        # 이어 학습(train_es.py 와 같은 방식): 학습 대상 블록만 체크포인트에서 복원하고
+        # 지난 세대의 난수는 평가 없이 다시 뽑아 버린다.
+        if kind == "residual":
+            from ..agents.residual import ResidualPolicy as _P
+        else:
+            from ..agents.gating import GatingPolicy as _P
+        theta = _P.load(resume).flat.copy()
+        assert theta.size == n_par, "체크포인트의 학습 파라미터 수가 다릅니다"
+        start_gen, history = load_resume(resume, resume_history)
+        lr_eff = float(history[-1]["lr_eff"])
+        n_accept = int(sum(h["accepted"] for h in history))
+        t_offset = float(history[-1].get("elapsed", 0.0))
+        for _ in range(start_gen):
+            _draw_generation(rng, episodes, opponents, pop, n_par)
+        print(f"이어 학습: {resume} ({start_gen}세대, lr={lr_eff:.4f}, "
+              f"accept={n_accept}/{start_gen}) -> {generations}세대", flush=True)
     pool = Pool(workers) if workers > 1 else None
-    t0 = time.time()
-    for gen in range(1, generations + 1):
-        seeds = rng.integers(0, 10 ** 6, episodes)
-        opps = np.array([opponents[i % len(opponents)] for i in range(episodes)])
-        rng.shuffle(opps)
-        eps = rng.normal(0.0, 1.0, (pop // 2, n_par))
-        eps = np.concatenate([eps, -eps], axis=0)
+    t0 = time.time() - t_offset
+    for gen in range(start_gen + 1, generations + 1):
+        seeds, opps, eps = _draw_generation(rng, episodes, opponents, pop, n_par)
         cands = theta[None, :] + sigma * eps
         jobs = [(kind, cands[i], cfg, seeds, opps, fitness, False) for i in range(pop)]
         fits = (np.array(pool.map(_rollout, jobs)) if pool
@@ -118,7 +140,7 @@ def train(kind: str, generations=200, pop=32, sigma=0.05, lr=0.01, episodes=8, s
                             accepted=bool(accepted), lr_eff=float(lr_eff),
                             elapsed=time.time() - t0, alpha_lo=1.0,
                             diag_mean=d_cur[0], diag_std=d_cur[1]))
-        if gen % max(1, generations // 20) == 0 or gen == 1:
+        if gen % max(1, generations // 20) == 0 or gen == start_gen + 1:
             lab = "|δ|" if kind == "residual" else "g"
             print(f"[gen {gen:4d}] fit mean={fits.mean():8.3f} max={fits.max():8.3f} "
                   f"theta={history[-1]['fit_theta']:8.3f} accept={n_accept}/{gen} "
@@ -152,12 +174,14 @@ def main():
     ap.add_argument("--bt-version", type=int, default=2)
     ap.add_argument("--rl-ckpt", default=None, help="게이팅형이 고정해서 쓸 학습 정책 체크포인트")
     ap.add_argument("--gate-hidden", type=int, nargs="*", default=[8])
+    ap.add_argument("--resume", default=None, help="이어 학습할 체크포인트 (ckpt_<tag>_gen<G>.npz)")
+    ap.add_argument("--resume-history", default=None, help="그 학습의 history_<tag>.json")
     a = ap.parse_args()
     outdir = a.outdir or ("results/es_res" if a.kind == "residual" else "results/es_gate")
     train(a.kind, a.generations, a.pop, a.sigma, a.lr, a.episodes, a.seed, a.workers,
           outdir=outdir, checkpoint_every=a.checkpoint_every, tag=a.tag or f"seed{a.seed}",
           fitness=a.fitness, beta=a.beta, bt_version=a.bt_version, rl_ckpt=a.rl_ckpt,
-          gate_hidden=tuple(a.gate_hidden))
+          gate_hidden=tuple(a.gate_hidden), resume=a.resume, resume_history=a.resume_history)
 
 
 if __name__ == "__main__":

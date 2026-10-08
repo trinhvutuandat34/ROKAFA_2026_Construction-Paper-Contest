@@ -6,3 +6,6 @@ results/r9_*/traj_*.npz
 *.cpython-311.pyc
 # 6자유도 교차검증 궤적 파일 (약 145 MB). python -m dfxai.sixdof.crossval run 으로 그대로 재생성된다.
 results/sixdof_main/traj_*.npz
+# 추가 실험(E1–E3) 평가 궤적 파일. D* 는 각 폴더의 xai.csv·merged.csv 에 있고
+# results/run_extra_eval.sh 로 그대로 재생성된다.
+results/extra_*/traj_*.npz
