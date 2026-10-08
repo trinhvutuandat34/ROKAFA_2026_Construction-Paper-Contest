@@ -28,6 +28,28 @@ from ..agents.hybrid import MLPPolicy, HybridPolicy
 from .shaping import potential, episode_fitness
 
 
+# ----------------------------------------------------------------- 상대
+_OPP_CACHE: dict = {}
+
+
+def _opponent(spec):
+    """상대 명세 -> (정책, 관측의 α).
+
+    정수는 행동트리 버전(본실험). 상대 풀 학습(--pool-*)에서는 ("bto", 경로),
+    ("rl", 경로) 도 쓴다. 학습 정책 상대는 평가 때처럼 α = 1.0 관측을 받는다.
+    """
+    if isinstance(spec, (int, np.integer)):
+        return BTPolicy(version=int(spec)), 0.0
+    kind, path = spec
+    if spec not in _OPP_CACHE:
+        if kind == "bto":
+            from ..agents.bt_param import ParamBTPolicy
+            _OPP_CACHE[spec] = ParamBTPolicy.load(path)
+        else:
+            _OPP_CACHE[spec] = MLPPolicy.load(path)
+    return _OPP_CACHE[spec], (1.0 if kind == "rl" else 0.0)
+
+
 # ----------------------------------------------------------------- 적합도
 def _rollout_fitness(args):
     """후보 파라미터 하나에 대한 평균 적합도."""
@@ -40,8 +62,8 @@ def _rollout_fitness(args):
     total = 0.0
     for seed, alpha, ov in zip(seeds, alphas, opp_versions):
         blue = HybridPolicy(bt, rl, alpha=alpha)
-        red = BTPolicy(version=ov)
-        ob, orr = env.reset(seed=int(seed), alpha=float(alpha))
+        red, alpha_red = _opponent(ov)
+        ob, orr = env.reset(seed=int(seed), alpha=float(alpha), alpha_red=alpha_red)
         pot_sum, n = 0.0, 0
         for _ in range(env.max_steps + 1):
             a_b, a_r = blue.act(ob), red.act(orr)
@@ -94,6 +116,31 @@ def _draw_generation(rng, gen, generations, episodes, opponents, pop, n_par,
     return a_lo, alphas, seeds, opps, eps
 
 
+def _draw_generation_pool(rng, episodes, slots, pools, pop, n_par, alpha_fixed):
+    """상대 풀 학습의 한 세대 난수. 세대마다 슬롯 순서대로 범주 안에서 상대를 하나씩 고른다."""
+    alphas = np.full(episodes, float(alpha_fixed))
+    seeds = rng.integers(0, 10 ** 6, episodes)
+    opps = []
+    for k in range(episodes):
+        cand = pools[slots[k % len(slots)]]
+        opps.append(cand[int(rng.integers(len(cand)))])
+    eps = rng.normal(0.0, 1.0, (pop // 2, n_par))
+    eps = np.concatenate([eps, -eps], axis=0)
+    return float(alpha_fixed), alphas, seeds, opps, eps
+
+
+def _league(outdir: str, tag: str, every: int, upto: int) -> list:
+    """자기 이전 체크포인트(every 세대마다) 가운데 upto 세대 이하인 것."""
+    if every <= 0:
+        return []
+    out = []
+    for g in range(every, upto + 1, every):
+        p = os.path.join(outdir, f"ckpt_{tag}_gen{g:05d}.npz")
+        if os.path.exists(p):
+            out.append(("rl", p))
+    return out
+
+
 def load_resume(ckpt: str, history_path: str):
     """이어 학습 준비: 체크포인트의 세대 번호까지 history 를 잘라 돌려줍니다."""
     m = re.search(r"gen(\d+)", os.path.basename(ckpt))
@@ -115,9 +162,20 @@ def train(generations=200, pop=40, sigma=0.08, lr=0.03, episodes=4,
           alpha_curriculum=False, tag="seed0", init: str | None = None,
           accept_test: bool = True, accept_tol: float = 0.0,
           fitness: str = "default", timeout_rule: str = "hp",
-          resume: str | None = None, resume_history: str | None = None):
+          resume: str | None = None, resume_history: str | None = None,
+          alpha_fixed: float | None = None, opp_pool: dict | None = None,
+          slots: tuple = (), league_every: int = 0):
+    """opp_pool: 상대 풀 학습(수준 향상 실험 B). {"bt": [1, 2], "bto": [경로…], "rl": [경로…]}.
+    slots 는 세대당 교전의 범주 배정(예: bt1 bt2 bt2 bto bto rl rl rl), league_every > 0 이면
+    자기 체크포인트를 그 간격마다 rl 범주에 더한다(이전 학습 모델과의 대전)."""
     os.makedirs(outdir, exist_ok=True)
     rng = np.random.default_rng(seed)
+    if opp_pool is not None:
+        assert alpha_fixed is not None, "상대 풀 학습은 --alpha-fixed 와 함께 쓴다"
+        pools = {"bt1": [1], "bt2": [2], "bto": [("bto", p) for p in opp_pool.get("bto", [])],
+                 "rl": [("rl", p) for p in opp_pool.get("rl", [])]}
+        for c in slots:
+            assert pools.get(c), f"상대 범주 {c} 가 비어 있습니다"
     lr_eff, n_accept = lr, 0
     start_gen, history, t_offset = 0, [], 0.0
     if resume:
@@ -131,8 +189,13 @@ def train(generations=200, pop=40, sigma=0.08, lr=0.03, episodes=4,
         n_accept = int(sum(h["accepted"] for h in history))
         t_offset = float(history[-1].get("elapsed", 0.0))
         for g in range(1, start_gen + 1):
-            _draw_generation(rng, g, generations, episodes, opponents, pop,
-                             theta.size, alpha_curriculum)
+            if opp_pool is not None:
+                pools["rl"] = [("rl", p) for p in opp_pool.get("rl", [])] + \
+                    _league(outdir, tag, league_every, g - 1)
+                _draw_generation_pool(rng, episodes, slots, pools, pop, theta.size, alpha_fixed)
+            else:
+                _draw_generation(rng, g, generations, episodes, opponents, pop,
+                                 theta.size, alpha_curriculum)
         print(f"이어 학습: {resume} ({start_gen}세대, lr={lr_eff:.4f}, "
               f"accept={n_accept}/{start_gen}) -> {generations}세대", flush=True)
     elif init:
@@ -149,8 +212,14 @@ def train(generations=200, pop=40, sigma=0.08, lr=0.03, episodes=4,
     t0 = time.time() - t_offset
 
     for gen in range(start_gen + 1, generations + 1):
-        a_lo, alphas, seeds, opps, eps = _draw_generation(
-            rng, gen, generations, episodes, opponents, pop, n_par, alpha_curriculum)
+        if opp_pool is not None:
+            pools["rl"] = [("rl", p) for p in opp_pool.get("rl", [])] + \
+                _league(outdir, tag, league_every, gen - 1)
+            a_lo, alphas, seeds, opps, eps = _draw_generation_pool(
+                rng, episodes, slots, pools, pop, n_par, alpha_fixed)
+        else:
+            a_lo, alphas, seeds, opps, eps = _draw_generation(
+                rng, gen, generations, episodes, opponents, pop, n_par, alpha_curriculum)
         cands = theta[None, :] + sigma * eps
 
         jobs = [(cands[i], hidden, seeds, alphas, opps, bt_version, fitness, timeout_rule)
@@ -194,7 +263,8 @@ def train(generations=200, pop=40, sigma=0.08, lr=0.03, episodes=4,
                   f"accept={n_accept}/{gen} lr={lr_eff:.4f} alpha>={a_lo:.2f} "
                   f"({time.time()-t0:.0f}s)", flush=True)
 
-        if gen % checkpoint_every == 0 or gen == generations:
+        if gen % checkpoint_every == 0 or gen == generations or \
+                (league_every > 0 and gen % league_every == 0):
             p = MLPPolicy(hidden=hidden, params=theta)
             p.save(os.path.join(outdir, f"ckpt_{tag}_gen{gen:05d}.npz"))
             _dump_history(outdir, tag, history)        # 학습 중에도 뷰어가 읽도록
@@ -242,6 +312,16 @@ def main():
                     help="이어 학습할 체크포인트 (ckpt_<tag>_gen<G>.npz). --resume-history 필요.")
     ap.add_argument("--resume-history", default=None,
                     help="그 체크포인트를 만든 학습의 history_<tag>.json")
+    ap.add_argument("--alpha-fixed", type=float, default=None,
+                    help="모든 학습 교전의 α 를 이 값으로 고정 (1.0 = 순수 학습 정책만 학습)")
+    ap.add_argument("--pool-bto", nargs="*", default=None,
+                    help="상대 풀: 상수 최적화 행동트리 체크포인트. 이 옵션이 있으면 상대 풀 학습")
+    ap.add_argument("--pool-rl", nargs="*", default=[],
+                    help="상대 풀: 이전 학습 정책 체크포인트")
+    ap.add_argument("--pool-slots", default="bt1,bt2,bt2,bto,bto,rl,rl,rl",
+                    help="세대당 교전의 상대 범주 배정 (bt1·bt2·bto·rl)")
+    ap.add_argument("--league-every", type=int, default=0,
+                    help="자기 체크포인트를 이 간격마다 rl 상대 풀에 추가 (0 = 안 함)")
     args = ap.parse_args()
     tag = args.tag or f"seed{args.seed}"
     train(generations=args.generations, pop=args.pop, sigma=args.sigma,
@@ -251,7 +331,9 @@ def main():
           alpha_curriculum=args.alpha_curriculum, init=args.init,
           accept_test=not args.no_accept_test, fitness=args.fitness,
           timeout_rule=args.timeout_rule, resume=args.resume,
-          resume_history=args.resume_history)
+          resume_history=args.resume_history, alpha_fixed=args.alpha_fixed,
+          opp_pool=(None if args.pool_bto is None else dict(bto=args.pool_bto, rl=args.pool_rl)),
+          slots=tuple(args.pool_slots.split(",")), league_every=args.league_every)
 
 
 if __name__ == "__main__":
