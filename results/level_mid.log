@@ -5,3 +5,11 @@
 /home/user/ROKAFA_2026_Construction-Paper-Contest/dfxai/analysis/report.py:118: UserWarning: You passed an edgecolor/edgecolors ('k') for an unfilled marker ('x').  Matplotlib is ignoring the edgecolor in favor of the facecolor.  This behavior may change in the future.
   ax.scatter(g[xcol], g[ycol], marker=m, c=c, s=70, label=fam,
 총 8400회 교전 실행 (조건 21 x 상대 2 x 시드 100 x 진영 2)
+저장 완료: results/level_b1_draw
+/home/user/ROKAFA_2026_Construction-Paper-Contest/dfxai/analysis/report.py:118: UserWarning: You passed an edgecolor/edgecolors ('k') for an unfilled marker ('x').  Matplotlib is ignoring the edgecolor in favor of the facecolor.  This behavior may change in the future.
+  ax.scatter(g[xcol], g[ycol], marker=m, c=c, s=70, label=fam,
+/home/user/ROKAFA_2026_Construction-Paper-Contest/dfxai/analysis/report.py:118: UserWarning: You passed an edgecolor/edgecolors ('k') for an unfilled marker ('x').  Matplotlib is ignoring the edgecolor in favor of the facecolor.  This behavior may change in the future.
+  ax.scatter(g[xcol], g[ycol], marker=m, c=c, s=70, label=fam,
+총 8000회 교전 실행 (조건 10 x 상대 4 x 시드 100 x 진영 2)
+저장 완료: results/level_b1_heldout
+DONE

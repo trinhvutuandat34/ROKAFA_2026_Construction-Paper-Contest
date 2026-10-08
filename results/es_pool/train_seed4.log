@@ -10,3 +10,4 @@
 [gen  400] fit mean=  -0.382 max=   6.187 theta=   4.134 accept=233/400 lr=0.0025 alpha>=1.00 (6226s)
 [gen  450] fit mean=   0.781 max=   8.733 theta=   9.183 accept=265/450 lr=0.0025 alpha>=1.00 (6938s)
 [gen  500] fit mean=  -2.077 max=   2.821 theta=   4.310 accept=292/500 lr=0.0033 alpha>=1.00 (7613s)
+[gen  550] fit mean=   2.290 max=   9.684 theta=   6.224 accept=316/550 lr=0.0038 alpha>=1.00 (8434s)
