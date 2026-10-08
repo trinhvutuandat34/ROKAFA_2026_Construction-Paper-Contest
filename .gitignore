@@ -9,3 +9,5 @@ results/sixdof_main/traj_*.npz
 # 추가 실험(E1–E3) 평가 궤적 파일. D* 는 각 폴더의 xai.csv·merged.csv 에 있고
 # results/run_extra_eval.sh 로 그대로 재생성된다.
 results/extra_*/traj_*.npz
+# 수준 향상 실험 평가 궤적 파일. results/run_level_eval.sh 로 그대로 재생성된다.
+results/level_*/traj_*.npz
