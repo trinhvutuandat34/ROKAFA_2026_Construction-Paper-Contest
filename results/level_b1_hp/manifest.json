@@ -10,6 +10,24 @@
       "budget": 100
     },
     {
+      "name": "POOL-s0-b300",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed0_gen00300.npz",
+      "train_seed": 0,
+      "bt_version": 2,
+      "budget": 300
+    },
+    {
+      "name": "POOL-s0-b500",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed0_gen00500.npz",
+      "train_seed": 0,
+      "bt_version": 2,
+      "budget": 500
+    },
+    {
       "name": "POOL-s1-b100",
       "kind": "rl",
       "alpha": 1.0,
@@ -17,6 +35,24 @@
       "train_seed": 1,
       "bt_version": 2,
       "budget": 100
+    },
+    {
+      "name": "POOL-s1-b300",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed1_gen00300.npz",
+      "train_seed": 1,
+      "bt_version": 2,
+      "budget": 300
+    },
+    {
+      "name": "POOL-s1-b500",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed1_gen00500.npz",
+      "train_seed": 1,
+      "bt_version": 2,
+      "budget": 500
     },
     {
       "name": "POOL-s2-b100",
@@ -28,6 +64,24 @@
       "budget": 100
     },
     {
+      "name": "POOL-s2-b300",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed2_gen00300.npz",
+      "train_seed": 2,
+      "bt_version": 2,
+      "budget": 300
+    },
+    {
+      "name": "POOL-s2-b500",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed2_gen00500.npz",
+      "train_seed": 2,
+      "bt_version": 2,
+      "budget": 500
+    },
+    {
       "name": "POOL-s3-b100",
       "kind": "rl",
       "alpha": 1.0,
@@ -37,6 +91,24 @@
       "budget": 100
     },
     {
+      "name": "POOL-s3-b300",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed3_gen00300.npz",
+      "train_seed": 3,
+      "bt_version": 2,
+      "budget": 300
+    },
+    {
+      "name": "POOL-s3-b500",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed3_gen00500.npz",
+      "train_seed": 3,
+      "bt_version": 2,
+      "budget": 500
+    },
+    {
       "name": "POOL-s4-b100",
       "kind": "rl",
       "alpha": 1.0,
@@ -44,6 +116,24 @@
       "train_seed": 4,
       "bt_version": 2,
       "budget": 100
+    },
+    {
+      "name": "POOL-s4-b300",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed4_gen00300.npz",
+      "train_seed": 4,
+      "bt_version": 2,
+      "budget": 300
+    },
+    {
+      "name": "POOL-s4-b500",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed4_gen00500.npz",
+      "train_seed": 4,
+      "bt_version": 2,
+      "budget": 500
     }
   ],
   "opponents": [
