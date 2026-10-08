@@ -203,7 +203,7 @@ def run(conditions, opponents=(2, 3), n_seeds=100, workers=1,
 
 def default_conditions(ckpts: list[str] | None = None,
                        alphas=(0.0, 0.25, 0.5, 0.75, 1.0),
-                       bt_version: int = 2) -> list[dict]:
+                       bt_version: int = 2, rl_prefix: str = "RL") -> list[dict]:
     """기본 실험 조건 목록.
 
     BT 3종(교리 비교) + 학습예산별 체크포인트 x alpha 스윕.
@@ -223,7 +223,8 @@ def default_conditions(ckpts: list[str] | None = None,
                 continue
             kind = "rl" if a == 1.0 else "hybrid"
             conds.append(dict(
-                name=f"{'RL' if a==1.0 else 'HYB'}-s{train_seed}-b{budget}-a{a:.2f}",
+                name=(f"{rl_prefix}-s{train_seed}-b{budget}" if a == 1.0 and rl_prefix != "RL"
+                      else f"{'RL' if a==1.0 else 'HYB'}-s{train_seed}-b{budget}-a{a:.2f}"),
                 kind=kind, alpha=float(a), ckpt=ck, train_seed=train_seed,
                 bt_version=bt_version, budget=budget))
     return conds
@@ -251,6 +252,8 @@ def main():
     ap.add_argument("--gate-ckpts", nargs="*", default=[],
                     help="게이팅형 혼합 체크포인트 (train_es_hybrid.py --kind gating). 조건명 GATE-s<S>-b<G>")
     ap.add_argument("--no-bt", action="store_true", help="BT 3종 조건을 넣지 않음")
+    ap.add_argument("--rl-prefix", default="RL",
+                    help="순수 학습 정책 조건명의 접두어. RL 이 아니면 <접두어>-s<S>-b<G> (예: 수준 향상 실험 POOL)")
     ap.add_argument("--episode-time", type=float, default=None,
                     help="교전 제한시간 [s] (민감도 분석)")
     ap.add_argument("--timeout-rule", default=None, choices=(None, "hp", "draw"),
@@ -262,7 +265,7 @@ def main():
     ap.add_argument("--sixdof", action="store_true",
                     help="6자유도(JSBSim F-16) 평가 전용 교차검증 환경 (dfxai/sixdof)")
     a = ap.parse_args()
-    conds = default_conditions(a.ckpts, tuple(a.alphas), a.bt_version)
+    conds = default_conditions(a.ckpts, tuple(a.alphas), a.bt_version, a.rl_prefix)
     if a.no_bt:
         conds = [c for c in conds if c["kind"] != "bt"]
     for ck in a.bto_ckpts:

@@ -35,7 +35,7 @@ def _job(args):
     return dict(a=sa["name"], b=sb["name"], seed=seed, score_a=(s1 + s2) / 2)
 
 
-def specs_from_args(rl_ckpts, bto_ckpts=(), shield_ckpts=(), with_bt=True):
+def specs_from_args(rl_ckpts, bto_ckpts=(), shield_ckpts=(), with_bt=True, pool_ckpts=()):
     specs = []
     if with_bt:
         specs += [dict(name=f"BT-v{v}", kind="bt", bt_version=v) for v in (1, 2, 3)]
@@ -50,6 +50,10 @@ def specs_from_args(rl_ckpts, bto_ckpts=(), shield_ckpts=(), with_bt=True):
         ms, mg = re.search(r"seed(\d+)", ck), re.search(r"gen(\d+)", ck)
         specs.append(dict(name=f"SHD-s{ms.group(1)}-b{int(mg.group(1))}", kind="shield",
                           ckpt=ck, alpha=1.0, bt_version=3))
+    for ck in pool_ckpts:            # 수준 향상 실험(상대 풀 학습) 모델
+        ms, mg = re.search(r"seed(\d+)", ck), re.search(r"gen(\d+)", ck)
+        specs.append(dict(name=f"POOL-s{ms.group(1)}-b{int(mg.group(1))}", kind="rl",
+                          ckpt=ck, alpha=1.0))
     return specs
 
 
@@ -72,7 +76,7 @@ def run(specs, n_seeds=50, workers=1, outdir="results/pool", seed0=20_000):
         mat.loc[a, b] = m; mat.loc[b, a] = 1.0 - m
     mat.to_csv(os.path.join(outdir, "pool_matrix.csv"))
     fam = lambda n: "BT" if n.startswith("BT-v") else ("BTO" if n.startswith("BTO") else
-                    ("Shield" if n.startswith("SHD") else "RL"))
+                    ("Shield" if n.startswith("SHD") else ("Pool" if n.startswith("POOL") else "RL")))
     out = pd.DataFrame(dict(cond=names, pool_score=mat.mean(axis=1).values,
                             pool_score_vs_rl=[mat.loc[n, [m for m in names if fam(m) == "RL" and m != n]].mean()
                                               for n in names],
@@ -88,6 +92,7 @@ def main():
     ap.add_argument("--rl-ckpts", nargs="*", default=[])
     ap.add_argument("--bto-ckpts", nargs="*", default=[])
     ap.add_argument("--shield-ckpts", nargs="*", default=[])
+    ap.add_argument("--pool-ckpts", nargs="*", default=[], help="수준 향상 실험 모델 (조건명 POOL-s<S>-b<G>)")
     ap.add_argument("--n-seeds", type=int, default=50)
     ap.add_argument("--workers", type=int, default=1)
     ap.add_argument("--outdir", default="results/pool")
@@ -95,7 +100,8 @@ def main():
     rl = sorted(sum([glob.glob(p) for p in a.rl_ckpts], []))
     bto = sorted(sum([glob.glob(p) for p in a.bto_ckpts], []))
     shd = sorted(sum([glob.glob(p) for p in a.shield_ckpts], []))
-    run(specs_from_args(rl, bto, shd), a.n_seeds, a.workers, a.outdir)
+    pl = sorted(sum([glob.glob(p) for p in a.pool_ckpts], []))
+    run(specs_from_args(rl, bto, shd, pool_ckpts=pl), a.n_seeds, a.workers, a.outdir)
 
 
 if __name__ == "__main__":

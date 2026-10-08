@@ -70,6 +70,8 @@ def _family(cond: str) -> str:
         return "Residual"
     if cond.startswith("GATE"):
         return "Gated"
+    if cond.startswith("POOL"):
+        return "Pool"
     if cond.startswith("BT"):
         return "BT"
     if cond.startswith("RL"):

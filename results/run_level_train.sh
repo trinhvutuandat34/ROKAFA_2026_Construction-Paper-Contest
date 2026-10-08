@@ -43,6 +43,9 @@ if [ "$STAGE" = b1 ]; then
 fi
 
 if [ "$STAGE" = e1 ]; then
+  # setsid 로 띄우면 세션마다 스케줄러 자동 그룹이 따로 생겨 nice 가 그룹 사이에는 듣지 않는다.
+  # 그룹 자체의 nice 를 19로 내려 B1 이 CPU 를 먼저 쓰게 한다.
+  [ -w /proc/self/autogroup ] && echo 19 > /proc/self/autogroup
   D=results/es_long; mkdir -p $D
   for s in 1 11 14 2 18; do
     [ -f $D/ckpt_seed${s}_gen01000.npz ] && continue
