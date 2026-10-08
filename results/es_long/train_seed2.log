@@ -1,0 +1,2 @@
+이어 학습: results/es/ckpt_seed2_gen00300.npz (300세대, lr=0.0029, accept=176/300) -> 1000세대
+[gen  301] fit mean=  -2.947 max=   3.249 theta=  -0.539 accept=176/301 lr=0.0025 alpha>=0.25 (2035s)
