@@ -4,3 +4,4 @@
 이어 학습: results/es_long/ckpt_seed11_gen00350.npz (350세대, lr=0.0025, accept=209/350) -> 1000세대
 이어 학습: results/es_long/ckpt_seed11_gen00350.npz (350세대, lr=0.0025, accept=209/350) -> 1000세대
 [gen  351] fit mean=  -3.180 max=   0.522 theta=   0.765 accept=209/351 lr=0.0025 alpha>=0.25 (5153s)
+이어 학습: results/es_long/ckpt_seed11_gen00350.npz (350세대, lr=0.0025, accept=209/350) -> 1000세대
