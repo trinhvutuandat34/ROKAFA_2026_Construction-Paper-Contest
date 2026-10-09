@@ -14,3 +14,7 @@
 [gen  600] fit mean=   2.831 max=  13.971 theta=  13.879 accept=346/600 lr=0.0025 alpha>=1.00 (9175s)
 이어 학습: results/es_pool/ckpt_seed2_gen00600.npz (600세대, lr=0.0025, accept=346/600) -> 1000세대
 [gen  601] fit mean=   2.504 max=  11.832 theta=   8.996 accept=347/601 lr=0.0029 alpha>=1.00 (9188s)
+[gen  650] fit mean=  -0.519 max=   7.755 theta=   3.186 accept=376/650 lr=0.0038 alpha>=1.00 (9770s)
+[gen  700] fit mean=  -3.153 max=   7.580 theta=   7.733 accept=408/700 lr=0.0037 alpha>=1.00 (10354s)
+[gen  750] fit mean=   0.293 max=  12.950 theta=  10.912 accept=435/750 lr=0.0025 alpha>=1.00 (10976s)
+[gen  800] fit mean=   4.115 max=  13.538 theta=   8.460 accept=462/800 lr=0.0044 alpha>=1.00 (11592s)
