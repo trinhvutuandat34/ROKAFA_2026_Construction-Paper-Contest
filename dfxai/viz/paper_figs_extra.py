@@ -32,15 +32,21 @@ def _jitter(n: int, rng, w: float = 0.12) -> np.ndarray:
     return rng.uniform(-w, w, n)
 
 
-def _final(m: pd.DataFrame, hyb: pd.DataFrame, hyb_gen: int) -> list[tuple]:
+C_LEVEL = "#a3361a"     # 수준 향상 모델: 학습 기반과 같은 계열의 짙은 색
+
+
+def _final(m: pd.DataFrame, hyb: pd.DataFrame, hyb_gen: int, level: pd.DataFrame | None = None) -> list[tuple]:
     """(라벨, 묶음, 표식, 색, 데이터) 목록."""
     pick = lambda pat: m[m.cond.str.match(pat)]
+    lv = (level[level.cond.str.match(r"POOL-s\d+-b1000$")] if level is not None
+          else m.iloc[0:0])
     rows = [
         ("행동트리 BT-v1·v2·v3", "규칙 기반", "o", C_RULE, pick(r"BT-v\d$")),
         ("상수 최적화 BTO", "규칙 기반", "D", C_RULE, pick(r"BTO-s\d+-b300$")),
         ("신경망 (300세대)", "학습 기반", "o", C_LEARN, pick(r"RL-s\d+-b300-a1\.00$")),
         ("행동복제 초기 모델", "학습 기반", "s", C_LEARN, pick(r"RL-s0-b0-a1\.00$")),
         ("무작위 초기화 PPO", "학습 기반", "X", C_LEARN, pick(r"PPO-s\d+-b1500000$")),
+        ("수준 향상 신경망 (1,000세대)", "학습 기반", "P", C_LEVEL, lv),
         ("선형 혼합형 (α 0.25~0.75)", "하이브리드", "^", C_HYB, pick(r"HYB-s\d+-b300-a0\.\d+$")),
         ("감독형", "하이브리드", "v", C_HYB, pick(r"SHD-s\d+-b300$")),
         (f"잔차형 ({hyb_gen}세대)", "하이브리드", "*", C_HYB, hyb[hyb.cond.str.match(rf"RES-s\d+-b{hyb_gen}$")]),
@@ -55,9 +61,11 @@ def fig_plane(out: str, seed: int = 0) -> str:
         hyb, gen = pd.read_csv("results/extra_hyb/merged.csv"), 300
     else:
         hyb, gen = pd.read_csv("results/main_hyb/merged.csv"), 200
+    lpath = "results/level_b1_hp/merged.csv"
+    level = pd.read_csv(lpath) if os.path.exists(lpath) else None
     rng = np.random.default_rng(seed)
-    fig, ax = plt.subplots(figsize=(7.2, 6.0))
-    groups = _final(m, hyb, gen)
+    fig, ax = plt.subplots(figsize=(7.2, 6.03))        # 원고 그림(1383×1158)과 같은 가로세로 비
+    groups = _final(m, hyb, gen, level)
     for lab, grp, mk, col, d in groups:
         if d.empty:
             continue
@@ -65,7 +73,7 @@ def fig_plane(out: str, seed: int = 0) -> str:
         y = y + np.where(y >= 17, _jitter(len(y), rng), _jitter(len(y), rng, 0.05))
         big = grp == "규칙 기반" and mk == "o"
         alpha = 0.55 if lab.startswith("선형") else 0.9
-        ax.scatter(d["score"], y, marker=mk, s=110 if big else (95 if mk == "*" else 55),
+        ax.scatter(d["score"], y, marker=mk, s=110 if big else (95 if mk in ("*", "P") else 55),
                    c=col, alpha=alpha, edgecolors="white", linewidths=0.6, zorder=3)
         if big:
             for _, r in d.iterrows():
@@ -74,7 +82,7 @@ def fig_plane(out: str, seed: int = 0) -> str:
                             fontsize=10, color="#555555")
     ax.axhline(17, ls="--", lw=1, color="#888888", zorder=1)
     ax.text(0.205, 17.6, "절단: 깊이 16으로도 95% 재현 불가(D* = 17로 기록)", fontsize=10, color="#444444")
-    ax.set_xlim(0.2, 0.83); ax.set_ylim(0, 18.3)
+    ax.set_xlim(0.2, 0.87); ax.set_ylim(0, 18.3)
     ax.set_yticks([1, 3, 5, 7, 9, 11, 13, 15, 17])
     ax.set_xlabel("전투 성능: 점수 (상대 2종 평균, 0.5 = 대등)", fontsize=12)
     ax.set_ylabel("설명 비용: 최소 트리 깊이 D*", fontsize=12)
