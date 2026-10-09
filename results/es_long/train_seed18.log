@@ -6,3 +6,4 @@
 [gen  351] fit mean=   1.961 max=   7.897 theta=   8.408 accept=200/351 lr=0.0033 alpha>=0.25 (3572s)
 이어 학습: results/es_long/ckpt_seed18_gen00350.npz (350세대, lr=0.0029, accept=199/350) -> 1000세대
 [gen  351] fit mean=   1.961 max=   7.897 theta=   8.408 accept=200/351 lr=0.0033 alpha>=0.25 (3524s)
+[gen  400] fit mean=  -3.007 max=   6.364 theta=   3.152 accept=230/400 lr=0.0025 alpha>=0.25 (9057s)

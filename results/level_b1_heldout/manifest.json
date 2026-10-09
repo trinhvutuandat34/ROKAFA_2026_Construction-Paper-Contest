@@ -10,6 +10,33 @@
       "budget": 100
     },
     {
+      "name": "POOL-s0-b200",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed0_gen00200.npz",
+      "train_seed": 0,
+      "bt_version": 2,
+      "budget": 200
+    },
+    {
+      "name": "POOL-s0-b300",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed0_gen00300.npz",
+      "train_seed": 0,
+      "bt_version": 2,
+      "budget": 300
+    },
+    {
+      "name": "POOL-s0-b400",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed0_gen00400.npz",
+      "train_seed": 0,
+      "bt_version": 2,
+      "budget": 400
+    },
+    {
       "name": "POOL-s0-b500",
       "kind": "rl",
       "alpha": 1.0,
@@ -17,6 +44,51 @@
       "train_seed": 0,
       "bt_version": 2,
       "budget": 500
+    },
+    {
+      "name": "POOL-s0-b600",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed0_gen00600.npz",
+      "train_seed": 0,
+      "bt_version": 2,
+      "budget": 600
+    },
+    {
+      "name": "POOL-s0-b700",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed0_gen00700.npz",
+      "train_seed": 0,
+      "bt_version": 2,
+      "budget": 700
+    },
+    {
+      "name": "POOL-s0-b800",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed0_gen00800.npz",
+      "train_seed": 0,
+      "bt_version": 2,
+      "budget": 800
+    },
+    {
+      "name": "POOL-s0-b900",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed0_gen00900.npz",
+      "train_seed": 0,
+      "bt_version": 2,
+      "budget": 900
+    },
+    {
+      "name": "POOL-s0-b1000",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed0_gen01000.npz",
+      "train_seed": 0,
+      "bt_version": 2,
+      "budget": 1000
     },
     {
       "name": "POOL-s1-b100",
@@ -28,6 +100,33 @@
       "budget": 100
     },
     {
+      "name": "POOL-s1-b200",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed1_gen00200.npz",
+      "train_seed": 1,
+      "bt_version": 2,
+      "budget": 200
+    },
+    {
+      "name": "POOL-s1-b300",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed1_gen00300.npz",
+      "train_seed": 1,
+      "bt_version": 2,
+      "budget": 300
+    },
+    {
+      "name": "POOL-s1-b400",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed1_gen00400.npz",
+      "train_seed": 1,
+      "bt_version": 2,
+      "budget": 400
+    },
+    {
       "name": "POOL-s1-b500",
       "kind": "rl",
       "alpha": 1.0,
@@ -35,6 +134,51 @@
       "train_seed": 1,
       "bt_version": 2,
       "budget": 500
+    },
+    {
+      "name": "POOL-s1-b600",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed1_gen00600.npz",
+      "train_seed": 1,
+      "bt_version": 2,
+      "budget": 600
+    },
+    {
+      "name": "POOL-s1-b700",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed1_gen00700.npz",
+      "train_seed": 1,
+      "bt_version": 2,
+      "budget": 700
+    },
+    {
+      "name": "POOL-s1-b800",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed1_gen00800.npz",
+      "train_seed": 1,
+      "bt_version": 2,
+      "budget": 800
+    },
+    {
+      "name": "POOL-s1-b900",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed1_gen00900.npz",
+      "train_seed": 1,
+      "bt_version": 2,
+      "budget": 900
+    },
+    {
+      "name": "POOL-s1-b1000",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed1_gen01000.npz",
+      "train_seed": 1,
+      "bt_version": 2,
+      "budget": 1000
     },
     {
       "name": "POOL-s2-b100",
@@ -46,6 +190,33 @@
       "budget": 100
     },
     {
+      "name": "POOL-s2-b200",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed2_gen00200.npz",
+      "train_seed": 2,
+      "bt_version": 2,
+      "budget": 200
+    },
+    {
+      "name": "POOL-s2-b300",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed2_gen00300.npz",
+      "train_seed": 2,
+      "bt_version": 2,
+      "budget": 300
+    },
+    {
+      "name": "POOL-s2-b400",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed2_gen00400.npz",
+      "train_seed": 2,
+      "bt_version": 2,
+      "budget": 400
+    },
+    {
       "name": "POOL-s2-b500",
       "kind": "rl",
       "alpha": 1.0,
@@ -53,6 +224,51 @@
       "train_seed": 2,
       "bt_version": 2,
       "budget": 500
+    },
+    {
+      "name": "POOL-s2-b600",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed2_gen00600.npz",
+      "train_seed": 2,
+      "bt_version": 2,
+      "budget": 600
+    },
+    {
+      "name": "POOL-s2-b700",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed2_gen00700.npz",
+      "train_seed": 2,
+      "bt_version": 2,
+      "budget": 700
+    },
+    {
+      "name": "POOL-s2-b800",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed2_gen00800.npz",
+      "train_seed": 2,
+      "bt_version": 2,
+      "budget": 800
+    },
+    {
+      "name": "POOL-s2-b900",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed2_gen00900.npz",
+      "train_seed": 2,
+      "bt_version": 2,
+      "budget": 900
+    },
+    {
+      "name": "POOL-s2-b1000",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed2_gen01000.npz",
+      "train_seed": 2,
+      "bt_version": 2,
+      "budget": 1000
     },
     {
       "name": "POOL-s3-b100",
@@ -64,6 +280,33 @@
       "budget": 100
     },
     {
+      "name": "POOL-s3-b200",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed3_gen00200.npz",
+      "train_seed": 3,
+      "bt_version": 2,
+      "budget": 200
+    },
+    {
+      "name": "POOL-s3-b300",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed3_gen00300.npz",
+      "train_seed": 3,
+      "bt_version": 2,
+      "budget": 300
+    },
+    {
+      "name": "POOL-s3-b400",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed3_gen00400.npz",
+      "train_seed": 3,
+      "bt_version": 2,
+      "budget": 400
+    },
+    {
       "name": "POOL-s3-b500",
       "kind": "rl",
       "alpha": 1.0,
@@ -71,6 +314,51 @@
       "train_seed": 3,
       "bt_version": 2,
       "budget": 500
+    },
+    {
+      "name": "POOL-s3-b600",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed3_gen00600.npz",
+      "train_seed": 3,
+      "bt_version": 2,
+      "budget": 600
+    },
+    {
+      "name": "POOL-s3-b700",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed3_gen00700.npz",
+      "train_seed": 3,
+      "bt_version": 2,
+      "budget": 700
+    },
+    {
+      "name": "POOL-s3-b800",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed3_gen00800.npz",
+      "train_seed": 3,
+      "bt_version": 2,
+      "budget": 800
+    },
+    {
+      "name": "POOL-s3-b900",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed3_gen00900.npz",
+      "train_seed": 3,
+      "bt_version": 2,
+      "budget": 900
+    },
+    {
+      "name": "POOL-s3-b1000",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed3_gen01000.npz",
+      "train_seed": 3,
+      "bt_version": 2,
+      "budget": 1000
     },
     {
       "name": "POOL-s4-b100",
@@ -82,6 +370,33 @@
       "budget": 100
     },
     {
+      "name": "POOL-s4-b200",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed4_gen00200.npz",
+      "train_seed": 4,
+      "bt_version": 2,
+      "budget": 200
+    },
+    {
+      "name": "POOL-s4-b300",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed4_gen00300.npz",
+      "train_seed": 4,
+      "bt_version": 2,
+      "budget": 300
+    },
+    {
+      "name": "POOL-s4-b400",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed4_gen00400.npz",
+      "train_seed": 4,
+      "bt_version": 2,
+      "budget": 400
+    },
+    {
       "name": "POOL-s4-b500",
       "kind": "rl",
       "alpha": 1.0,
@@ -89,6 +404,51 @@
       "train_seed": 4,
       "bt_version": 2,
       "budget": 500
+    },
+    {
+      "name": "POOL-s4-b600",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed4_gen00600.npz",
+      "train_seed": 4,
+      "bt_version": 2,
+      "budget": 600
+    },
+    {
+      "name": "POOL-s4-b700",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed4_gen00700.npz",
+      "train_seed": 4,
+      "bt_version": 2,
+      "budget": 700
+    },
+    {
+      "name": "POOL-s4-b800",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed4_gen00800.npz",
+      "train_seed": 4,
+      "bt_version": 2,
+      "budget": 800
+    },
+    {
+      "name": "POOL-s4-b900",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed4_gen00900.npz",
+      "train_seed": 4,
+      "bt_version": 2,
+      "budget": 900
+    },
+    {
+      "name": "POOL-s4-b1000",
+      "kind": "rl",
+      "alpha": 1.0,
+      "ckpt": "results/es_pool/ckpt_seed4_gen01000.npz",
+      "train_seed": 4,
+      "bt_version": 2,
+      "budget": 1000
     }
   ],
   "opponents": [

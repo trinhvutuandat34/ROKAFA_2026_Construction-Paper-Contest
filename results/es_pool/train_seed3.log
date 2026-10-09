@@ -18,3 +18,7 @@
 [gen  700] fit mean=  -0.016 max=  10.152 theta=   5.877 accept=391/700 lr=0.0025 alpha>=1.00 (10500s)
 [gen  750] fit mean=   6.818 max=  14.928 theta=  18.076 accept=413/750 lr=0.0029 alpha>=1.00 (11102s)
 [gen  800] fit mean=   4.756 max=  11.310 theta=  10.356 accept=442/800 lr=0.0054 alpha>=1.00 (11680s)
+[gen  850] fit mean=  -2.167 max=   3.676 theta=   1.267 accept=475/850 lr=0.0029 alpha>=1.00 (12290s)
+[gen  900] fit mean=   4.409 max=  14.938 theta=  11.111 accept=504/900 lr=0.0029 alpha>=1.00 (12879s)
+[gen  950] fit mean=   2.151 max=  10.487 theta=   6.394 accept=537/950 lr=0.0079 alpha>=1.00 (13444s)
+[gen 1000] fit mean=   2.202 max=   9.499 theta=   9.147 accept=568/1000 lr=0.0044 alpha>=1.00 (13983s)
